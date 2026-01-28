@@ -1,0 +1,73 @@
+name: chahanjan_app
+description: "A new Flutter project."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.6
+
+  # 🔥 Firebase (Upgraded as requested)
+  firebase_core: ^3.4.0
+  firebase_auth: ^5.2.0
+  cloud_firestore: ^5.4.0
+  firebase_storage: ^12.2.0
+  firebase_messaging: ^15.0.0 # Added back (required by code)
+  
+  # 🧩 상태 관리 및 유틸리티
+  provider: ^6.1.2
+  intl: ^0.19.0 # Added back (required by code)
+  flutter_secure_storage: ^9.0.0 # Added back (required by code)
+  
+  # 📍 지도 및 위치
+  geolocator: ^13.0.1
+  google_maps_flutter: ^2.9.0
+  
+  # 🟡 카카오 로그인
+  kakao_flutter_sdk: ^1.9.6
+  
+  # 🔐 소셜 로그인 (Added back required packages)
+  google_sign_in: ^6.2.1
+  sign_in_with_apple: ^7.0.1
+  
+  # 📸 이미지 선택
+  image_picker: ^1.1.2
+  
+  # 📹 영상통화 (ZEGO)
+  zego_uikit_prebuilt_call: ^4.16.3
+  
+  # 🌍 번역 기능 (Using 'translator' to avoid dio conflict with kakao)
+  translator: ^1.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  
+  # 📱 앱 아이콘 및 로딩 화면
+  flutter_launcher_icons: ^0.13.1
+  flutter_native_splash: ^2.4.1
+
+# 👇 앱 아이콘 설정
+# flutter_icons:
+#   android: "ic_launcher"
+#   ios: true
+#   image_path: "assets/app_icon.png"
+
+# 👇 로딩 화면 설정
+# flutter_native_splash:
+#   color: "#000000"
+#   image: "assets/app_icon.png"
+#   android: true
+#   ios: true
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/avatars/
+    - assets/shop_image.png
+    # - assets/app_icon.png
