@@ -12,6 +12,7 @@ import 'dart:typed_data';
 import 'profile_screen.dart';
 import 'shop_screen.dart';
 import 'chat_list_screen.dart'; // 채팅 목록 화면 (만드셨다면)
+import 'chat_screen.dart'; // [추가] 채팅 화면
 import '../utils/app_strings.dart';
 import '../services/user_service.dart'; // [추가]
 
@@ -31,7 +32,13 @@ class _MapScreenState extends State<MapScreen> {
   
   // 2. 내 위치 및 마커 상태
   Position? _currentPosition;
-  Set<Marker> _markers = {};
+
+  
+  // 1. 🟢 내 마커 (내 아바타 전용)
+  Set<Marker> _myMarker = {}; 
+
+  // 2. 🔵 남의 마커들 (검색된 유저 전용)
+  Set<Marker> _otherMarkers = {};
   Set<Circle> _circles = {}; // 1. 원(Circle)을 관리할 변수 선언
   double _currentRadius = 5000.0; // 현재 반경 (기본값 5000m)
   String _currentAvatar = 'rat.png'; // 현재 아바타 (변화 감지용)
@@ -129,7 +136,7 @@ class _MapScreenState extends State<MapScreen> {
     if (_currentPosition == null) return;
 
     setState(() {
-      _markers = {
+      _myMarker = {
         Marker(
           markerId: const MarkerId('me'),
           position: LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
@@ -188,7 +195,7 @@ class _MapScreenState extends State<MapScreen> {
 
     // [중요] 최초 1회는 찻잎 소모 없이 무조건 검색
     if (_isFirstLoad) {
-      await _searchNearbyUsers(isPaid: false); 
+      _searchNearbyUsers(); 
       _isFirstLoad = false; // 플래그 끄기
     }
 
@@ -200,70 +207,81 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
-  // [핵심] 유저 검색 로직 (무료/유료 분기 처리)
-  Future<void> _searchNearbyUsers({required bool isPaid}) async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null || _currentPosition == null) return;
-    String myUserId = user.uid;
+  // 🚀 채팅방으로 이동
+  void _navigateToChat(String peerId, String peerNickname, String peerAvatar) {
+    // 채팅방 ID 만들기 (나_너 또는 너_나)
+    final myUid = FirebaseAuth.instance.currentUser!.uid;
+    final chatId = myUid.hashCode <= peerId.hashCode 
+        ? '$myUid-$peerId' 
+        : '$peerId-$myUid';
 
-    // 유료 검색(새로고침 버튼)인 경우 찻잎 검사
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ChatScreen(
+          chatRoomId: chatId,
+          peerNickname: peerNickname,
+          peerAvatar: peerAvatar, // 상대방 아바타 이미지 전달
+        ),
+      ),
+    );
+  }
+
+  // 🔍 주변 유저 찾기 (일단 가짜 데이터로 테스트)
+  void _searchNearbyUsers({bool isPaid = false}) {
+    if (_currentPosition == null) return;
+
+    print("📡 주변 유저 검색 시작...");
+
     if (isPaid) {
-      bool success = await _userService.useTeaLeaf(myUserId, 1); // 1장 소모
-      if (!success) {
-        // 찻잎 부족 알림
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("찻잎이 부족해요! 🍂")),
+           const SnackBar(content: Text("찻잎 1장을 쓰고 주변을 둘러봅니다. 👀")),
         );
-        return; // 검색 중단
-      }
-      // 성공 시 메시지
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("찻잎 1장을 쓰고 주변을 둘러봅니다. 👀")),
-      );
     }
 
-    // 실제 데이터 가져오기 (Service 호출)
-    try {
-      var users = await _userService.fetchNearbyUsers(
-        myUserId, 
-        LatLng(_currentPosition!.latitude, _currentPosition!.longitude), 
-        _currentRadius
-      );
-      print("🔍 발견된 유저 수: ${users.length}명");
+    // 가짜 유저 데이터 생성 (내 위치 근처)
+    // 실제로는 여기서 Firebase 데이터를 가져옵니다.
+    List<Map<String, dynamic>> dummyUsers = [
+      {
+        "id": "user_1",
+        "nickname": "지나가던 토끼",
+        "lat": _currentPosition!.latitude + 0.002, // 약간 위
+        "lng": _currentPosition!.longitude + 0.002, // 약간 오른쪽
+        "avatar": "rabbit.png"
+      },
+      {
+        "id": "user_2",
+        "nickname": "배고픈 호랑이",
+        "lat": _currentPosition!.latitude - 0.002, // 약간 아래
+        "lng": _currentPosition!.longitude - 0.002, // 약간 왼쪽
+        "avatar": "tiger.png"
+      },
+    ];
 
-      // 마커 만들기
-      Set<Marker> newMarkers = {};
-      
-      // 내 마커는 유지해야 함
-      if (_markers.isNotEmpty) {
-        // 'me' ID를 가진 마커 찾아서 유지
-        newMarkers.addAll(_markers.where((m) => m.markerId.value == 'me'));
-      }
+    Set<Marker> tempMarkers = {};
 
-      for (var u in users) {
-        // 위치 정보가 잘 있는지 확인
-        if (u['location'] is GeoPoint) {
-            GeoPoint loc = u['location'];
-            newMarkers.add(Marker(
-            markerId: MarkerId(u['id']),
-            position: LatLng(loc.latitude, loc.longitude),
-            infoWindow: InfoWindow(title: u['nickname'] ?? '알 수 없음'),
-            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet), // 보라색 마커
+    for (var user in dummyUsers) {
+      tempMarkers.add(
+        Marker(
+          markerId: MarkerId(user['id']),
+          position: LatLng(user['lat'], user['lng']),
+          // 3단계에서 채팅 연결할 때 이 정보가 쓰입니다 👇
+          infoWindow: InfoWindow(
+            title: user['nickname'],
+            snippet: "터치해서 대화하기 👋", 
             onTap: () {
-                // 채팅하기 로직 (일단 로그만)
-                print("유저 클릭: ${u['nickname']}");
-            } 
-          ));
-        }
-      }
-
-      setState(() {
-        _markers = newMarkers;
-      });
-
-    } catch (e) {
-      print("❌ 유저 검색 실패: $e");
+               // 여기서 채팅방 이동 함수 호출!
+               _navigateToChat(user['id'], user['nickname'], user['avatar']);
+            }
+          ),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet), // 일단 보라색 핀
+        ),
+      );
     }
+
+    setState(() {
+      _otherMarkers = tempMarkers; // 🔵 남의 마커 그릇에만 담기!
+    });
   }
 
   @override
@@ -308,7 +326,7 @@ class _MapScreenState extends State<MapScreen> {
               target: LatLng(37.5665, 126.9780), // 서울 기본값
               zoom: 16,
             ),
-            markers: _markers, // 👈 내 12지신 마커가 여기 들어감
+            markers: _myMarker.union(_otherMarkers), // 👈 내 마커 + 남의 마커 합쳐서 표시
             circles: _circles, // 3. 위에서 만든 원 세트 연결
             myLocationEnabled: true, // 파란 점 표시 (보조용)
             myLocationButtonEnabled: false, // 기본 버튼 끄기 (우리가 만든 거 쓸 거임)
