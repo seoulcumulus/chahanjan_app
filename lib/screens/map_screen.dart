@@ -13,6 +13,7 @@ import 'profile_screen.dart';
 import 'shop_screen.dart';
 import 'chat_list_screen.dart'; // 채팅 목록 화면 (만드셨다면)
 import '../utils/app_strings.dart';
+import '../services/user_service.dart'; // [추가]
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -22,6 +23,9 @@ class MapScreen extends StatefulWidget {
 }
 
 class _MapScreenState extends State<MapScreen> {
+  // 서비스 인스턴스
+  final UserService _userService = UserService(); // [추가]
+
   // 1. 지도 컨트롤러
   GoogleMapController? _mapController;
   
@@ -29,8 +33,10 @@ class _MapScreenState extends State<MapScreen> {
   Position? _currentPosition;
   Set<Marker> _markers = {};
   Set<Circle> _circles = {}; // 1. 원(Circle)을 관리할 변수 선언
+  double _currentRadius = 5000.0; // 현재 반경 (기본값 5000m)
   String _currentAvatar = 'rat.png'; // 현재 아바타 (변화 감지용)
   BitmapDescriptor? _myMarkerIcon; // 변환된 마커 아이콘
+  bool _isFirstLoad = true; // [추가] 처음 실행 여부 확인용
 
   final Color _signatureColor = const Color(0xFF24FCFF);
 
@@ -141,12 +147,11 @@ class _MapScreenState extends State<MapScreen> {
       _circles = {
         Circle(
           circleId: const CircleId('my_radius'),
-          center: myPosition, // 내 현재 위치
-          radius: _currentRadius, // 5km 반경 (변수 사용)
-          
-          fillColor: Colors.transparent, // 내부를 투명하게 해서 지도 기본 색상이 보이게 함
-          strokeColor: signatureColor,   // 테두리 선은 시그니처 컬러 사용
-          strokeWidth: 3,                // 선 두께 (잘 보이도록 2~5 사이 추천)
+          center: myPosition,
+          radius: _currentRadius, // [수정] 고정값 대신 변수 사용
+          fillColor: Colors.transparent, // 투명 (지도 보임)
+          strokeColor: signatureColor,   // 시그니처 컬러 테두리
+          strokeWidth: 3,
         ),
       };
     });
@@ -181,11 +186,83 @@ class _MapScreenState extends State<MapScreen> {
       _updateMyRadiusCircle(LatLng(position.latitude, position.longitude), _signatureColor); // 원 그리기 추가
     });
 
+    // [중요] 최초 1회는 찻잎 소모 없이 무조건 검색
+    if (_isFirstLoad) {
+      await _searchNearbyUsers(isPaid: false); 
+      _isFirstLoad = false; // 플래그 끄기
+    }
+
     // 4. 지도 카메라 이동 (처음 한 번만)
     if (_mapController != null) {
       _mapController!.animateCamera(
         CameraUpdate.newLatLng(LatLng(position.latitude, position.longitude)),
       );
+    }
+  }
+
+  // [핵심] 유저 검색 로직 (무료/유료 분기 처리)
+  Future<void> _searchNearbyUsers({required bool isPaid}) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null || _currentPosition == null) return;
+    String myUserId = user.uid;
+
+    // 유료 검색(새로고침 버튼)인 경우 찻잎 검사
+    if (isPaid) {
+      bool success = await _userService.useTeaLeaf(myUserId, 1); // 1장 소모
+      if (!success) {
+        // 찻잎 부족 알림
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("찻잎이 부족해요! 🍂")),
+        );
+        return; // 검색 중단
+      }
+      // 성공 시 메시지
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("찻잎 1장을 쓰고 주변을 둘러봅니다. 👀")),
+      );
+    }
+
+    // 실제 데이터 가져오기 (Service 호출)
+    try {
+      var users = await _userService.fetchNearbyUsers(
+        myUserId, 
+        LatLng(_currentPosition!.latitude, _currentPosition!.longitude), 
+        _currentRadius
+      );
+      print("🔍 발견된 유저 수: ${users.length}명");
+
+      // 마커 만들기
+      Set<Marker> newMarkers = {};
+      
+      // 내 마커는 유지해야 함
+      if (_markers.isNotEmpty) {
+        // 'me' ID를 가진 마커 찾아서 유지
+        newMarkers.addAll(_markers.where((m) => m.markerId.value == 'me'));
+      }
+
+      for (var u in users) {
+        // 위치 정보가 잘 있는지 확인
+        if (u['location'] is GeoPoint) {
+            GeoPoint loc = u['location'];
+            newMarkers.add(Marker(
+            markerId: MarkerId(u['id']),
+            position: LatLng(loc.latitude, loc.longitude),
+            infoWindow: InfoWindow(title: u['nickname'] ?? '알 수 없음'),
+            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet), // 보라색 마커
+            onTap: () {
+                // 채팅하기 로직 (일단 로그만)
+                print("유저 클릭: ${u['nickname']}");
+            } 
+          ));
+        }
+      }
+
+      setState(() {
+        _markers = newMarkers;
+      });
+
+    } catch (e) {
+      print("❌ 유저 검색 실패: $e");
     }
   }
 
@@ -283,22 +360,22 @@ class _MapScreenState extends State<MapScreen> {
                   onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ShopScreen())),
                 ),
                 const SizedBox(height: 10),
-                // 채팅 목록 버튼 (구현하셨다면 연결)
+                // 채팅 목록 버튼
                 FloatingActionButton.small(
                   heroTag: 'chat',
                   backgroundColor: Colors.white,
                   child: const Icon(Icons.chat_bubble_outline, color: Colors.black),
                   onPressed: () {
-                    // Navigator.push(context, MaterialPageRoute(builder: (_) => const ChatListScreen()));
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const ChatListScreen()));
                   },
                 ),
               ],
             ),
           ),
 
-          // 📍 5. 내 위치 찾기 버튼 (수리 완료!)
+          // 📍 5. 내 위치 찾기 버튼 (슬라이더 위로 이동)
           Positioned(
-            bottom: 30, right: 20,
+            bottom: 180, right: 20,
             child: FloatingActionButton(
               heroTag: 'my_loc_fix',
               backgroundColor: Colors.white,
@@ -347,6 +424,61 @@ class _MapScreenState extends State<MapScreen> {
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("위치 오류: $e")));
                 }
               },
+            ),
+          ),
+
+          // 📏 6. 하단 슬라이더 컨트롤러 (지도 위에 겹침)
+          Positioned(
+            bottom: 30, // 하단에서 30만큼 띄움
+            left: 20,
+            right: 20,
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.9), // 반투명 흰색 배경
+                borderRadius: BorderRadius.circular(15),
+                boxShadow: [
+                  BoxShadow(color: Colors.black26, blurRadius: 10, spreadRadius: 1),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // 현재 설정된 거리 텍스트 표시 (예: 2.5 km)
+                  Text(
+                    "반경: ${(_currentRadius / 1000).toStringAsFixed(1)} km",
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                  
+                  // 슬라이더 위젯
+                  Slider(
+                    value: _currentRadius,
+                    min: 100.0,  // 최소 100미터
+                    max: 5000.0, // 최대 5키로미터
+                    activeColor: _signatureColor, // 시그니처 컬러 사용
+                    inactiveColor: Colors.grey[300],
+                    label: "${(_currentRadius).toInt()}m",
+                    divisions: 49, // 100m 단위로 딱딱 끊어지게 하려면 설정 (선택사항)
+                    onChanged: (double newValue) {
+                      setState(() {
+                        _currentRadius = newValue; // 1. 값 변경
+                        
+                        // 2. 지도 위의 원 크기 즉시 업데이트
+                        if (_currentPosition != null) {
+                           _updateMyRadiusCircle(
+                             LatLng(_currentPosition!.latitude, _currentPosition!.longitude), 
+                             _signatureColor
+                           );
+                        }
+                      });
+                    },
+                    onChangeEnd: (double newValue) {
+                      // 3. 슬라이더를 놓았을 때 유저 검색 실행 (성능 최적화)
+                      // _findUsersInRadius(); 
+                    },
+                  ),
+                ],
+              ),
             ),
           ),
         ],
