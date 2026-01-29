@@ -42,6 +42,7 @@ dependencies:
   
   # 🌍 번역 기능 (Using 'translator' to avoid dio conflict with kakao)
   translator: ^1.0.0
+  flutter_native_splash: ^2.4.1
 
 dev_dependencies:
   flutter_test:
@@ -50,7 +51,7 @@ dev_dependencies:
   
   # 📱 앱 아이콘 및 로딩 화면
   flutter_launcher_icons: ^0.13.1
-  flutter_native_splash: ^2.4.1
+
 
 # 👇 앱 아이콘 설정
 # flutter_icons:
