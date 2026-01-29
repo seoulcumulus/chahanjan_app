@@ -28,6 +28,7 @@ class _MapScreenState extends State<MapScreen> {
   // 2. 내 위치 및 마커 상태
   Position? _currentPosition;
   Set<Marker> _markers = {};
+  Set<Circle> _circles = {}; // 1. 원(Circle)을 관리할 변수 선언
   String _currentAvatar = 'rat.png'; // 현재 아바타 (변화 감지용)
   BitmapDescriptor? _myMarkerIcon; // 변환된 마커 아이콘
 
@@ -134,6 +135,23 @@ class _MapScreenState extends State<MapScreen> {
     });
   }
 
+  // 2. 위치가 업데이트될 때마다 원을 새로 그리는 함수
+  void _updateMyRadiusCircle(LatLng myPosition, Color signatureColor) {
+    setState(() {
+      _circles = {
+        Circle(
+          circleId: const CircleId('my_radius'),
+          center: myPosition, // 내 현재 위치
+          radius: _currentRadius, // 5km 반경 (변수 사용)
+          
+          fillColor: Colors.transparent, // 내부를 투명하게 해서 지도 기본 색상이 보이게 함
+          strokeColor: signatureColor,   // 테두리 선은 시그니처 컬러 사용
+          strokeWidth: 3,                // 선 두께 (잘 보이도록 2~5 사이 추천)
+        ),
+      };
+    });
+  }
+
   // 📍 내 위치 가져오기 (권한 체크 포함)
   Future<void> _determinePosition() async {
     bool serviceEnabled;
@@ -160,6 +178,7 @@ class _MapScreenState extends State<MapScreen> {
     setState(() {
       _currentPosition = position;
       _updateMyMarker(); // 위치 찾으면 마커 찍기
+      _updateMyRadiusCircle(LatLng(position.latitude, position.longitude), _signatureColor); // 원 그리기 추가
     });
 
     // 4. 지도 카메라 이동 (처음 한 번만)
@@ -213,6 +232,7 @@ class _MapScreenState extends State<MapScreen> {
               zoom: 16,
             ),
             markers: _markers, // 👈 내 12지신 마커가 여기 들어감
+            circles: _circles, // 3. 위에서 만든 원 세트 연결
             myLocationEnabled: true, // 파란 점 표시 (보조용)
             myLocationButtonEnabled: false, // 기본 버튼 끄기 (우리가 만든 거 쓸 거임)
             zoomControlsEnabled: false,
@@ -319,6 +339,7 @@ class _MapScreenState extends State<MapScreen> {
                   setState(() {
                     _currentPosition = position;
                     _updateMyMarker();
+                    _updateMyRadiusCircle(LatLng(position.latitude, position.longitude), _signatureColor); // 원 그리기 추가
                   });
 
                 } catch (e) {
