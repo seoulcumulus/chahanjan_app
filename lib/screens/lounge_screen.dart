@@ -173,11 +173,11 @@ class _LoungeScreenState extends State<LoungeScreen> {
   void _listenForMatch() {
     final myUid = FirebaseAuth.instance.currentUser?.uid;
     
-    // chat_rooms 컬렉션에서 'users' 배열에 내 ID가 포함된 방이 생기는지 감시
+    // chat_rooms 컬렉션에서 'participants' 배열에 내 ID가 포함된 방이 생기는지 감시
     _matchSubscription = FirebaseFirestore.instance
         .collection('chat_rooms')
-        .where('users', arrayContains: myUid)
-        .orderBy('createdAt', descending: true)
+        .where('participants', arrayContains: myUid)
+        .orderBy('updatedAt', descending: true) // createdAt -> updatedAt (Schema Unification)
         .limit(1)
         .snapshots()
         .listen((snapshot) {
@@ -194,7 +194,7 @@ class _LoungeScreenState extends State<LoungeScreen> {
   }
 
   // 🚪 채팅방 입장 함수
-  void _enterChatRoom(String roomId) {
+  Future<void> _enterChatRoom(String roomId) async {
     // 리스너 해제 (더 이상 감시 X)
     _matchSubscription?.cancel();
     
@@ -202,13 +202,33 @@ class _LoungeScreenState extends State<LoungeScreen> {
       _isSearching = false; // 로딩 끝
     });
 
-    // 채팅 화면으로 이동
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (context) => ChatScreen(chatRoomId: roomId, peerNickname: "운명의 상대", peerAvatar: "rat.png"), // ChatScreen에 roomId 전달 필요
-      ),
-    );
+    try {
+      final myUid = FirebaseAuth.instance.currentUser?.uid;
+      // 방 정보 가져와서 상대방 ID 찾기
+      final doc = await FirebaseFirestore.instance.collection('chat_rooms').doc(roomId).get();
+      if (!doc.exists) return;
+
+      final data = doc.data() as Map<String, dynamic>;
+      final List<dynamic> participants = data['participants'] ?? [];
+      final String peerUid = participants.firstWhere((id) => id != myUid, orElse: () => 'unknown');
+
+      if (!mounted) return;
+
+      // 채팅 화면으로 이동
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ChatScreen(
+            chatRoomId: roomId, 
+            peerUid: peerUid, // 찾은 peerUid 전달
+            peerNickname: "운명의 상대", 
+            peerAvatar: "rat.png"
+          ), 
+        ),
+      );
+    } catch (e) {
+      print("❌ 채팅방 입장 오류: $e");
+    }
   }
 
   // 🛑 매칭 취소 버튼

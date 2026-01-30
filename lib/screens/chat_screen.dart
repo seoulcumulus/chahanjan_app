@@ -9,12 +9,14 @@ import 'call_screen.dart'; // 영상통화 화면
 
 class ChatScreen extends StatefulWidget {
   final String chatRoomId;
+  final String peerUid; // peerUid 필드 추가
   final String peerNickname;
   final String peerAvatar;
 
   const ChatScreen({
     super.key, 
     required this.chatRoomId, 
+    required this.peerUid, // peerUid 추가
     required this.peerNickname,
     required this.peerAvatar,
   });
@@ -34,24 +36,38 @@ class _ChatScreenState extends State<ChatScreen> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    await FirebaseFirestore.instance
-        .collection('chat_rooms')
-        .doc(widget.chatRoomId)
-        .collection('messages')
-        .add({
-      'text': text,
-      'senderId': user.uid,
-      'createdAt': FieldValue.serverTimestamp(),
-      'type': type, // 'text' or 'image'
-    });
+    try {
+      if (widget.peerUid.isEmpty) {
+        throw Exception("상대방 ID가 유효하지 않습니다.");
+      }
 
-    // 마지막 메시지 업데이트
-    await FirebaseFirestore.instance.collection('chat_rooms').doc(widget.chatRoomId).update({
-      'lastMessage': type == 'image' ? '사진을 보냈습니다.' : text,
-      'lastMessageTime': FieldValue.serverTimestamp(),
-    });
+      await FirebaseFirestore.instance
+          .collection('chat_rooms')
+          .doc(widget.chatRoomId)
+          .collection('messages')
+          .add({
+        'text': text,
+        'senderId': user.uid,
+        'createdAt': FieldValue.serverTimestamp(),
+        'type': type, // 'text' or 'image'
+      });
 
-    _messageController.clear();
+      // 마지막 메시지 업데이트 (방이 없으면 생성!)
+      await FirebaseFirestore.instance.collection('chat_rooms').doc(widget.chatRoomId).set({
+        'participants': [user.uid, widget.peerUid], // 참여자 정보 저장 (중요!)
+        'lastMessage': type == 'image' ? '사진을 보냈습니다.' : text,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true)); // merge: true -> 기존 데이터 유지하며 업데이트
+
+      _messageController.clear();
+    } catch (e) {
+      print("메시지 전송 실패: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("전송 실패: $e")),
+        );
+      }
+    }
   }
 
   // 📸 이미지 전송

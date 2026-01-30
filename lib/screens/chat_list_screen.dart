@@ -8,16 +8,21 @@ class ChatListScreen extends StatelessWidget {
   const ChatListScreen({super.key});
 
   // 🕒 시간 포맷 (예: 오후 2:30 or 어제)
+  // 🕒 스마트한 시간 변환 함수 (자동 언어 감지)
   String _formatTimestamp(Timestamp? timestamp) {
     if (timestamp == null) return "";
     DateTime date = timestamp.toDate();
     DateTime now = DateTime.now();
     
-    // 오늘이면 시간만, 아니면 날짜 표시
+    // 로케일(언어) 설정을 안 넣으면 -> 자동으로 시스템 언어를 따라갑니다.
+    
+    // 오늘이면 -> 시간만 표시 (예: 5:30 PM 또는 오후 5:30)
     if (date.year == now.year && date.month == now.month && date.day == now.day) {
-      return DateFormat('a h:mm', 'ko_KR').format(date);
-    } else {
-      return DateFormat('MM월 dd일', 'ko_KR').format(date);
+      return DateFormat.jm().format(date); // .jm()은 '시:분 AM/PM' 표준 형식
+    } 
+    // 오늘이 아니면 -> 날짜 표시 (예: Jan 31 또는 1월 31일)
+    else {
+      return DateFormat.MMMd().format(date); // .MMMd()는 '월 일' 표준 형식
     }
   }
 
@@ -40,7 +45,11 @@ class ChatListScreen extends StatelessWidget {
             .orderBy('updatedAt', descending: true) // last_time -> updatedAt
             .snapshots(),
         builder: (context, snapshot) {
-          if (!snapshot.hasData) {
+          if (snapshot.hasError) {
+            return Center(child: Text("오류가 발생했습니다: \n${snapshot.error}"));
+          }
+
+          if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
 
@@ -110,6 +119,7 @@ class ChatListScreen extends StatelessWidget {
                         MaterialPageRoute(
                           builder: (_) => ChatScreen(
                             chatRoomId: doc.id, 
+                            peerUid: peerUid, // peerUid 전달
                             peerNickname: peerNickname,
                             peerAvatar: peerAvatar,
                           ),

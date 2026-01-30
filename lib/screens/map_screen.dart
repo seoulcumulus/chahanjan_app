@@ -255,6 +255,7 @@ class _MapScreenState extends State<MapScreen> {
       MaterialPageRoute(
         builder: (context) => ChatScreen(
           chatRoomId: chatId,
+          peerUid: peerId, // peerId 전달
           peerNickname: peerNickname,
           peerAvatar: peerAvatar, // 상대방 아바타 이미지 전달
         ),

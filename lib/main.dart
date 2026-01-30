@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/date_symbol_data_local.dart'; // 👈 이거 추가!
 import 'package:chahanjan_app/screens/login_screen.dart';
 import 'package:chahanjan_app/screens/signup_screen.dart';
 import 'package:chahanjan_app/screens/map_screen.dart';
@@ -21,6 +22,7 @@ import 'dart:ui'; // Added
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await initializeDateFormatting('ko_KR', null); // 👈 이것도 추가!
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
