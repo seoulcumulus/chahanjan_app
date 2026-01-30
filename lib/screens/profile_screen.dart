@@ -230,7 +230,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   Text(AppStrings.getByLang(_selectedLanguage, 'inventory'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                   const SizedBox(height: 10),
                   Container(
-                    height: 120,
+                    height: 100,
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
                       color: Colors.grey[100],
