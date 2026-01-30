@@ -35,9 +35,9 @@ class ChatListScreen extends StatelessWidget {
       body: StreamBuilder<QuerySnapshot>(
         // 🔥 중요: 'users' 배열에 내 UID가 포함된 채팅방만 찾기
         stream: FirebaseFirestore.instance
-            .collection('chats')
-            .where('users', arrayContains: myUid)
-            .orderBy('last_time', descending: true) // 최신 대화순 정렬
+            .collection('chat_rooms')
+            .where('participants', arrayContains: myUid)
+            .orderBy('updatedAt', descending: true) // last_time -> updatedAt
             .snapshots(),
         builder: (context, snapshot) {
           if (!snapshot.hasData) {
@@ -69,7 +69,7 @@ class ChatListScreen extends StatelessWidget {
               final data = doc.data() as Map<String, dynamic>;
               
               // 🔍 상대방 ID 찾기 (참여자 목록 중 '나'가 아닌 사람)
-              final List<dynamic> users = data['users'];
+              final List<dynamic> users = data['participants'];
               final String peerUid = users.firstWhere((uid) => uid != myUid, orElse: () => "");
               
               // 🔍 상대방 닉네임 가져오기 (FutureBuilder 사용)
@@ -95,12 +95,12 @@ class ChatListScreen extends StatelessWidget {
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     subtitle: Text(
-                      data['last_message'] ?? '대화 내용 없음', // 마지막 메시지 미리보기
+                      data['lastMessage'] ?? '대화 내용 없음', // last_message -> lastMessage
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     trailing: Text(
-                      _formatTimestamp(data['last_time']), // 마지막 시간
+                      _formatTimestamp(data['updatedAt']), // last_time -> updatedAt
                       style: const TextStyle(fontSize: 12, color: Colors.grey),
                     ),
                     onTap: () {
