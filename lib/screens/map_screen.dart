@@ -193,6 +193,15 @@ class _MapScreenState extends State<MapScreen> {
       _updateMyRadiusCircle(LatLng(position.latitude, position.longitude), _signatureColor); // 원 그리기 추가
     });
 
+    final user = FirebaseAuth.instance.currentUser;
+    // 👇 [추가] 서버에 내 위치 신고!
+    if (user != null) {
+      UserService().updateMyLocation(
+        user.uid, 
+        LatLng(position.latitude, position.longitude)
+      );
+    }
+
     // [중요] 최초 1회는 찻잎 소모 없이 무조건 검색
     if (_isFirstLoad) {
       _searchNearbyUsers(); 
