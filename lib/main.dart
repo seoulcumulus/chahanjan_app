@@ -32,6 +32,11 @@ void main() async {
     nativeAppKey: '42308a286df44fe81bcc8b9da2b601b4',
     javaScriptAppKey: '31959c07302221dae40f7cc45049ddae',
   );
+  
+  // 👇 [추가] 이 코드가 콘솔에 키 해시를 찍어줍니다.
+  print('==========================================');
+  print('내 앱의 해시 키: ${await KakaoSdk.origin}'); 
+  print('==========================================');
   // 🌍 1. 스마트폰 언어 감지 및 설정
   final systemLocales = PlatformDispatcher.instance.locales;
   if (systemLocales.isNotEmpty && systemLocales.first.languageCode == 'ko') {
