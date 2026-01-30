@@ -207,6 +207,32 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
+  // 🔘 버튼 눌렀을 때 실행되는 함수
+  Future<void> _onSearchPressed() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    // 1. 찻잎 차감 시도
+    bool success = await UserService().deductTeaLeaf(user.uid);
+
+    if (success) {
+      // ✅ 성공: 검색 시작
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("찻잎 1잔을 내고 주변 친구들을 찾습니다! 🍵👀")),
+        );
+      }
+      _searchNearbyUsers(isPaid: true); // (아까 만든 진짜 유저 검색 함수)
+    } else {
+      // ❌ 실패: 잔액 부족
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("찻잎이 부족해요! 상점에서 충전해 주세요. 🍂")),
+        );
+      }
+    }
+  }
+
   // 🚀 채팅방으로 이동
   void _navigateToChat(String peerId, String peerNickname, String peerAvatar) {
     // 채팅방 ID 만들기 (나_너 또는 너_나)
@@ -225,6 +251,32 @@ class _MapScreenState extends State<MapScreen> {
         ),
       ),
     );
+  }
+
+  // 🍵 찻잎 1개 소모하고 채팅 시도
+  Future<void> _onUserMarkerTapped(String peerId, String peerNickname, String peerAvatar) async {
+    final myUid = FirebaseAuth.instance.currentUser?.uid;
+    if (myUid == null) return;
+
+    // 1. 찻잎 차감 시도
+    bool success = await _userService.deductTeaLeaf(myUid);
+    
+    if (!success) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("찻잎이 부족합니다! 🍵")),
+        );
+      }
+      return;
+    }
+
+    // 2. 성공 시 채팅방 이동
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("찻잎 1개 소모! 채팅을 시작합니다. 🍵")),
+      );
+      _navigateToChat(peerId, peerNickname, peerAvatar);
+    }
   }
 
   // 🔍 주변 유저 찾기 (일단 가짜 데이터로 테스트)
@@ -270,8 +322,8 @@ class _MapScreenState extends State<MapScreen> {
             title: user['nickname'],
             snippet: "터치해서 대화하기 👋", 
             onTap: () {
-               // 여기서 채팅방 이동 함수 호출!
-               _navigateToChat(user['id'], user['nickname'], user['avatar']);
+               // 찻잎 소모 로직 적용
+               _onUserMarkerTapped(user['id'], user['nickname'], user['avatar']);
             }
           ),
           icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet), // 일단 보라색 핀
@@ -442,6 +494,17 @@ class _MapScreenState extends State<MapScreen> {
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("위치 오류: $e")));
                 }
               },
+            ),
+          ),
+
+          // 🔍 7. 유저 검색 버튼 (내 위치 버튼 위에 배치)
+          Positioned(
+            bottom: 250, right: 20, 
+            child: FloatingActionButton(
+              heroTag: 'search_users',
+              backgroundColor: _signatureColor,
+              child: const Icon(Icons.person_search, color: Colors.black),
+              onPressed: _onSearchPressed,
             ),
           ),
 
