@@ -52,12 +52,25 @@ class _ChatScreenState extends State<ChatScreen> {
         'type': type, // 'text' or 'image'
       });
 
-      // 마지막 메시지 업데이트 (방이 없으면 생성!)
-      await FirebaseFirestore.instance.collection('chat_rooms').doc(widget.chatRoomId).set({
-        'participants': [user.uid, widget.peerUid], // 참여자 정보 저장 (중요!)
-        'lastMessage': type == 'image' ? '사진을 보냈습니다.' : text,
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true)); // merge: true -> 기존 데이터 유지하며 업데이트
+      final roomRef = FirebaseFirestore.instance.collection('chat_rooms').doc(widget.chatRoomId);
+
+      try {
+        // 1. 기존 방이 있으면 업데이트만 (status 건드리지 않음)
+        await roomRef.update({
+          'lastMessage': type == 'image' ? '사진을 보냈습니다.' : text,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      } catch (e) {
+        // 2. 방이 없으면 새로 생성 (이때만 status='pending' 설정)
+        await roomRef.set({
+          'participants': [user.uid, widget.peerUid],
+          'initiatorId': user.uid, // 신청자 ID
+          'status': 'pending',     // 대기 상태
+          'lastMessage': type == 'image' ? '사진을 보냈습니다.' : text,
+          'updatedAt': FieldValue.serverTimestamp(),
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
 
       _messageController.clear();
     } catch (e) {

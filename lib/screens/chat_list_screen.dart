@@ -2,27 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
-import 'chat_screen.dart'; // 채팅 화면 import 필수
+import '../services/user_service.dart'; // UserService 경로 확인 필요
+import 'chat_screen.dart';
 
 class ChatListScreen extends StatelessWidget {
   const ChatListScreen({super.key});
 
-  // 🕒 시간 포맷 (예: 오후 2:30 or 어제)
-  // 🕒 스마트한 시간 변환 함수 (자동 언어 감지)
+  // 🕒 스마트 시간 변환 (폰 언어 설정 따라감)
   String _formatTimestamp(Timestamp? timestamp) {
     if (timestamp == null) return "";
     DateTime date = timestamp.toDate();
     DateTime now = DateTime.now();
-    
-    // 로케일(언어) 설정을 안 넣으면 -> 자동으로 시스템 언어를 따라갑니다.
-    
-    // 오늘이면 -> 시간만 표시 (예: 5:30 PM 또는 오후 5:30)
+
+    // 오늘이면 시간만, 아니면 날짜 표시 (시스템 언어 자동 적용)
     if (date.year == now.year && date.month == now.month && date.day == now.day) {
-      return DateFormat.jm().format(date); // .jm()은 '시:분 AM/PM' 표준 형식
-    } 
-    // 오늘이 아니면 -> 날짜 표시 (예: Jan 31 또는 1월 31일)
-    else {
-      return DateFormat.MMMd().format(date); // .MMMd()는 '월 일' 표준 형식
+      return DateFormat.jm().format(date);
+    } else {
+      return DateFormat.MMMd().format(date);
     }
   }
 
@@ -38,101 +34,144 @@ class ChatListScreen extends StatelessWidget {
         elevation: 0,
       ),
       body: StreamBuilder<QuerySnapshot>(
-        // 🔥 중요: 'users' 배열에 내 UID가 포함된 채팅방만 찾기
+        // 🌟 컬렉션 이름: chat_rooms, 필드: participants, 정렬: updatedAt
         stream: FirebaseFirestore.instance
             .collection('chat_rooms')
             .where('participants', arrayContains: myUid)
-            .orderBy('updatedAt', descending: true) // last_time -> updatedAt
+            .orderBy('updatedAt', descending: true)
             .snapshots(),
         builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return Center(child: Text("오류가 발생했습니다: \n${snapshot.error}"));
-          }
-
-          if (snapshot.connectionState == ConnectionState.waiting) {
+          if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          final chatRooms = snapshot.data!.docs;
+          final allDocs = snapshot.data!.docs;
 
-          if (chatRooms.isEmpty) {
+          if (allDocs.isEmpty) {
             return const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.chat_bubble_outline, size: 80, color: Colors.grey),
-                  SizedBox(height: 20),
-                  Text("참여 중인 대화방이 없습니다.\n지도에서 친구를 찾아보세요! 🗺️", 
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                ],
-              ),
+              child: Text("참여 중인 대화방이 없습니다.\n지도에서 친구를 찾아보세요! 🗺️",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey)),
             );
           }
 
-          return ListView.builder(
-            itemCount: chatRooms.length,
-            itemBuilder: (context, index) {
-              final doc = chatRooms[index];
-              final data = doc.data() as Map<String, dynamic>;
-              
-              // 🔍 상대방 ID 찾기 (참여자 목록 중 '나'가 아닌 사람)
-              final List<dynamic> users = data['participants'];
-              final String peerUid = users.firstWhere((uid) => uid != myUid, orElse: () => "");
-              
-              // 🔍 상대방 닉네임 가져오기 (FutureBuilder 사용)
-              return FutureBuilder<DocumentSnapshot>(
-                future: FirebaseFirestore.instance.collection('users').doc(peerUid).get(),
-                builder: (context, userSnapshot) {
-                  // 로딩 중이거나 데이터가 없으면 기본값 표시
-                  String peerNickname = '알 수 없음';
-                  String peerAvatar = 'rat.png';
-                  if (userSnapshot.hasData && userSnapshot.data!.exists) {
-                    final userData = userSnapshot.data!.data() as Map<String, dynamic>;
-                    peerNickname = userData['nickname'] ?? '알 수 없음';
-                    peerAvatar = userData['avatar_image'] ?? 'rat.png';
-                  }
+          // 🛠️ [수정된 부분] 안전하게 분류하기 (데이터가 없으면 'pending'으로 간주)
+          final activeChats = allDocs.where((doc) {
+            final data = doc.data() as Map<String, dynamic>;
+            // 'status'가 없으면 기본값 'pending'을 씀 (에러 방지 쉴드 🛡️)
+            final status = data['status'] ?? 'pending'; 
+            return status == 'accepted';
+          }).toList();
 
-                  return ListTile(
-                    leading: const CircleAvatar(
-                      backgroundColor: Colors.amberAccent,
-                      child: Text('🐼', style: TextStyle(fontSize: 24)), // 나중에 상대 아바타 이미지로 교체
-                    ),
-                    title: Text(
-                      peerNickname,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    subtitle: Text(
-                      data['lastMessage'] ?? '대화 내용 없음', // last_message -> lastMessage
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    trailing: Text(
-                      _formatTimestamp(data['updatedAt']), // last_time -> updatedAt
-                      style: const TextStyle(fontSize: 12, color: Colors.grey),
-                    ),
-                    onTap: () {
-                      // 채팅방 입장!
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ChatScreen(
-                            chatRoomId: doc.id, 
-                            peerUid: peerUid, // peerUid 전달
-                            peerNickname: peerNickname,
-                            peerAvatar: peerAvatar,
-                          ),
-                        ),
-                      );
-                    },
-                  );
-                },
-              );
-            },
+          final pendingChats = allDocs.where((doc) {
+            final data = doc.data() as Map<String, dynamic>;
+            final status = data['status'] ?? 'pending';
+            return status == 'pending';
+          }).toList();
+
+          return ListView(
+            children: [
+              // 🟢 1. 대화 중인 방 (상단)
+              if (activeChats.isNotEmpty) ...[
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+                  child: Text("💬 대화 중인 방",
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                ),
+                ...activeChats.map((doc) => _buildChatTile(context, doc, myUid, isActive: true)),
+              ],
+
+              // 🟠 2. 대기 중인 요청 (하단)
+              if (pendingChats.isNotEmpty) ...[
+                if (activeChats.isNotEmpty) const Divider(thickness: 8, color: Colors.grey), // 구분선
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+                  child: Text("⏳ 대기 중인 요청",
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                ),
+                ...pendingChats.map((doc) => _buildChatTile(context, doc, myUid, isActive: false)),
+              ],
+            ],
           );
         },
       ),
+    );
+  }
+
+  // 🧩 타일 만드는 함수 (중복 제거)
+  Widget _buildChatTile(BuildContext context, DocumentSnapshot doc, String? myUid,
+      {required bool isActive}) {
+    final data = doc.data() as Map<String, dynamic>;
+    final List<dynamic> participants = data['participants'];
+    final String peerUid = participants.firstWhere((uid) => uid != myUid, orElse: () => "");
+
+    // 내가 신청했는지 확인 (내가 보낸 거면 버튼 안 뜸)
+    final String initiatorId = data['initiatorId'] ?? "";
+    final bool isReceivedRequest = (initiatorId != myUid);
+
+    return FutureBuilder<DocumentSnapshot>(
+      future: FirebaseFirestore.instance.collection('users').doc(peerUid).get(),
+      builder: (context, userSnapshot) {
+        String peerNickname = '알 수 없음';
+        String peerAvatar = 'rat.png';
+
+        if (userSnapshot.hasData && userSnapshot.data!.exists) {
+          final userData = userSnapshot.data!.data() as Map<String, dynamic>;
+          peerNickname = userData['nickname'] ?? '알 수 없음';
+          peerAvatar = userData['avatar_image'] ?? 'rat.png';
+        }
+
+        return ListTile(
+          leading: const CircleAvatar(
+            backgroundColor: Colors.amberAccent,
+            child: Text('🐼'), // 나중에 peerAvatar 이미지로 교체
+          ),
+          title: Text(peerNickname, style: const TextStyle(fontWeight: FontWeight.bold)),
+          
+          // 상태에 따른 메시지 표시
+          subtitle: isActive
+              ? Text(data['lastMessage'] ?? '', maxLines: 1, overflow: TextOverflow.ellipsis)
+              : Text(
+                  isReceivedRequest ? "대화를 요청했어요! 👇" : "상대방의 수락을 기다리는 중...",
+                  style: TextStyle(color: isReceivedRequest ? Colors.blue : Colors.grey),
+                ),
+          
+          // 시간 또는 수락 버튼 표시
+          trailing: isActive
+              ? Text(_formatTimestamp(data['updatedAt']), style: const TextStyle(fontSize: 12, color: Colors.grey))
+              : (isReceivedRequest
+                  ? ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                      ),
+                      onPressed: () {
+                        // ✅ 수락 버튼 클릭!
+                        UserService().acceptChatRequest(doc.id);
+                      },
+                      child: const Text("수락"),
+                    )
+                  : const Text("대기 중", style: TextStyle(fontSize: 12, color: Colors.grey))),
+          
+          // 탭했을 때 이동 (수락된 상태일 때만)
+          onTap: isActive
+              ? () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ChatScreen(
+                        chatRoomId: doc.id,
+                        peerUid: peerUid,
+                        peerNickname: peerNickname,
+                        peerAvatar: peerAvatar,
+                      ),
+                    ),
+                  );
+                }
+              : null, // 대기 중일 땐 탭 안 됨 (수락해야 들어감)
+        );
+      },
     );
   }
 }
