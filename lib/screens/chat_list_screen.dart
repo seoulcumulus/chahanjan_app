@@ -136,23 +136,64 @@ class ChatListScreen extends StatelessWidget {
                   style: TextStyle(color: isReceivedRequest ? Colors.blue : Colors.grey),
                 ),
           
-          // 시간 또는 수락 버튼 표시
+          // 시간 또는 버튼 표시
           trailing: isActive
-              ? Text(_formatTimestamp(data['updatedAt']), style: const TextStyle(fontSize: 12, color: Colors.grey))
-              : (isReceivedRequest
-                  ? ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                      ),
+              ? Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(_formatTimestamp(data['updatedAt']), style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                    const SizedBox(width: 8),
+                    // 대화 중인 방도 차단 가능
+                    IconButton(
+                      icon: const Icon(Icons.block, color: Colors.red, size: 20),
                       onPressed: () {
-                        // ✅ 수락 버튼 클릭!
-                        UserService().acceptChatRequest(doc.id);
+                        UserService().blockChatRoom(doc.id);
                       },
-                      child: const Text("수락"),
+                      tooltip: '차단',
+                    ),
+                  ],
+                )
+              : (isReceivedRequest
+                  ? Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            minimumSize: const Size(60, 36),
+                          ),
+                          onPressed: () {
+                            // ✅ 수락 버튼 클릭!
+                            UserService().acceptChatRequest(doc.id);
+                          },
+                          child: const Text("수락", style: TextStyle(fontSize: 12)),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(Icons.block, color: Colors.red, size: 20),
+                          onPressed: () {
+                            UserService().blockChatRoom(doc.id);
+                          },
+                          tooltip: '차단',
+                        ),
+                      ],
                     )
-                  : const Text("대기 중", style: TextStyle(fontSize: 12, color: Colors.grey))),
+                  : Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text("대기 중", style: TextStyle(fontSize: 12, color: Colors.grey)),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(Icons.block, color: Colors.red, size: 20),
+                          onPressed: () {
+                            UserService().blockChatRoom(doc.id);
+                          },
+                          tooltip: '취소',
+                        ),
+                      ],
+                    )),
           
           // 탭했을 때 이동 (수락된 상태일 때만)
           onTap: isActive

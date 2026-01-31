@@ -76,4 +76,9 @@ class UserService {
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }
+
+  // 3. 차단/삭제 기능
+  Future<void> blockChatRoom(String chatId) async {
+    await _firestore.collection('chat_rooms').doc(chatId).delete();
+  }
 }
