@@ -6,6 +6,7 @@ import 'package:chahanjan_app/screens/map_screen.dart';
 import 'package:chahanjan_app/screens/profile_setup_screen.dart';
 import 'package:chahanjan_app/screens/lounge_screen.dart'; // Added
 import 'package:chahanjan_app/utils/app_strings.dart'; // Added
+import 'package:chahanjan_app/home_screen.dart'; // 👈 새로 추가!
 
 import 'package:provider/provider.dart';
 import 'package:chahanjan_app/providers/user_provider.dart';
@@ -88,37 +89,8 @@ class MyApp extends StatelessWidget {
         
         useMaterial3: true,
       ),
-      home: StreamBuilder<User?>(
-        stream: FirebaseAuth.instance.authStateChanges(),
-        builder: (context, snapshot) {
-          // 1. 연결 상태 확인
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          // 2. 로그인 여부 확인
-          if (snapshot.hasData) {
-            // 로그인 됨 -> 프로필 있는지 확인
-            return FutureBuilder<DocumentSnapshot>(
-              future: FirebaseFirestore.instance.collection('users').doc(snapshot.data!.uid).get(),
-              builder: (context, userSnapshot) {
-                if (userSnapshot.connectionState == ConnectionState.waiting) {
-                  return const Scaffold(body: Center(child: CircularProgressIndicator()));
-                }
-
-                if (userSnapshot.hasData && userSnapshot.data!.exists) {
-                  return const MapScreen(); // 프로필 있음 -> 지도
-                } else {
-                  return const ProfileSetupScreen(); // 프로필 없음 -> 설정
-                }
-              },
-            );
-          }
-
-          // 3. 로그인 안됨 -> 로그인 화면
-          return const LoginScreen();
-        },
-      ),
+      // 🚪 문지기 역할 - 로그인 여부 확인
+      home: const AuthGate(),
       routes: {
         '/login': (context) => const LoginScreen(),
         '/signup': (context) => const SignupScreen(),
@@ -129,3 +101,32 @@ class MyApp extends StatelessWidget {
     );
   }
 }
+
+// 🚪 문지기 역할 (로그인 여부 확인)
+class AuthGate extends StatelessWidget {
+  const AuthGate({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        // 로딩 중일 때
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+        
+        // 로그인 되어 있으면 -> 홈 화면(HomeScreen)으로!
+        if (snapshot.hasData) {
+          return const HomeScreen();
+        }
+        
+        // 안 되어 있으면 -> 로그인 화면(LoginScreen)으로!
+        return const LoginScreen();
+      },
+    );
+  }
+}
+
