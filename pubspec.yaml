@@ -14,7 +14,7 @@ dependencies:
   # 🔥 Firebase (Upgraded as requested)
   firebase_core: ^3.4.0
   firebase_auth: ^5.2.0
-  cloud_firestore: ^5.4.0
+  cloud_firestore: ^5.6.12
   firebase_storage: ^12.2.0
   firebase_messaging: ^15.0.0 # Added back (required by code)
   

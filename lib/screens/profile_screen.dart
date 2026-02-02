@@ -180,27 +180,57 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Future<void> _saveProfile() async {
+   Future<void> _saveProfile() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
+    
+    // 로딩 시작 (키보드 내리기)
+    FocusScope.of(context).unfocus();
     setState(() => _isLoading = true);
+
     try {
-      await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
+      // ⚠️ 중요 수정 1: .update() 대신 .set(..., SetOptions(merge: true)) 사용
+      // (데이터가 없으면 만들고, 있으면 수정하라는 뜻. 에러가 안 납니다!)
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+        'uid': user.uid,            // 유저 ID도 같이 저장해주면 좋습니다
+        'email': user.email,        // 이메일도 저장
         'nickname': _nicknameController.text.trim(),
         'bio': _bioController.text.trim(),
+        'status': _bioController.text.trim(), // (지도 호환용)
         'avatar_image': _selectedAvatar, 
+        'owned_avatars': _myInventory,        // 인벤토리 목록 저장
         'language': _selectedLanguage,
         'gender': _gender,
         'age': _age.toInt(),
         'interests': _selectedInterests,
-        'mbti': _mbti, // MBTI 저장
-      });
+        'mbti': _mbti,
+        'lastActive': FieldValue.serverTimestamp(), // 마지막 접속 시간
+      }, SetOptions(merge: true));
+
       if (mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppStrings.getByLang(_selectedLanguage, 'save'))));
+        // ⚠️ 중요 수정 2: Navigator.pop(context); <--- 이 줄을 삭제했습니다! (이제 창이 안 닫힙니다)
+        
+        // 성공 알림창 띄우기
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("${AppStrings.getByLang(_selectedLanguage, 'save')} 완료! ✅"),
+            backgroundColor: Colors.green, // 성공하면 초록색
+            duration: const Duration(seconds: 2),
+          )
+        );
       }
     } catch (e) {
-      setState(() => _isLoading = false);
+      // 에러 나면 빨간창 띄우기
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('저장 실패: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      // 로딩 끝
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -230,7 +260,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   Text(AppStrings.getByLang(_selectedLanguage, 'inventory'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                   const SizedBox(height: 10),
                   Container(
-                    height: 100,
+                    height: 110,
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
                       color: Colors.grey[100],
@@ -248,6 +278,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           return GestureDetector(
                             onTap: () => setState(() => _selectedAvatar = avatar),
                             child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Container(
                                   padding: const EdgeInsets.all(2),
@@ -257,13 +289,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     boxShadow: isSelected ? [BoxShadow(color: _signatureColor.withOpacity(0.5), blurRadius: 8)] : null,
                                   ),
                                   child: CircleAvatar(
-                                    radius: 30,
+                                    radius: 26,
                                     backgroundColor: Colors.white,
                                     child: Image.asset('assets/avatars/$avatar', errorBuilder: (_, __, ___) => const Icon(Icons.pets)),
                                   ),
                                 ),
-                                if (isSelected) 
-                                  const Icon(Icons.check_circle, size: 16, color: Colors.green)
+                                if (isSelected) ...[
+                                  const SizedBox(height: 2),
+                                  const Icon(Icons.check_circle, size: 14, color: Colors.green)
+                                ]
                               ],
                             ),
                           );
