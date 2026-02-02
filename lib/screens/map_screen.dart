@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
@@ -50,7 +51,7 @@ class _MapScreenState extends State<MapScreen> {
   @override
   void initState() {
     super.initState();
-    _determinePosition(); // 시작하자마자 위치 찾기
+    _getCurrentLocation(); // 시작하자마자 위치 찾기
   }
 
   // 📍 (핵심) 이미지를 지도 마커로 변환하는 함수 (천사링/날개 이펙트 추가!)
@@ -164,55 +165,63 @@ class _MapScreenState extends State<MapScreen> {
     });
   }
 
-  // 📍 내 위치 가져오기 (권한 체크 포함)
-  Future<void> _determinePosition() async {
-    bool serviceEnabled;
-    LocationPermission permission;
 
-    // 1. GPS 켜져 있는지 확인
-    serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      print("❌ GPS가 꺼져 있습니다.");
-      return;
-    }
 
-    // 2. 권한 확인 및 요청
-    permission = await Geolocator.checkPermission();
+  // 📍 내 위치 가져오기 (보안 강화 버전)
+  Future<void> _getCurrentLocation() async {
+    // 1. 권한 확인 (기존 동일)
+    LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) return;
     }
-    if (permission == LocationPermission.deniedForever) return;
 
-    // 3. 위치 가져오기
-    Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+    // 2. 진짜 내 위치 가져오기 (정확함)
+    Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high);
+
+    // 3. 지도 카메라는 '내 진짜 위치'를 보여줌 (나는 내가 어디 있는지 알아야 하니까)
+    _mapController?.animateCamera(
+      CameraUpdate.newCameraPosition(
+        CameraPosition(
+          target: LatLng(position.latitude, position.longitude),
+          zoom: 15,
+        ),
+      ),
+    );
+
+    // 🛡️ 4. 서버에 저장할 때는 '가짜 위치(Fuzzy Location)' 만들기!
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      // 랜덤 오차 생성 (대략 반경 300m~500m 내외)
+      // 위도/경도 0.003도 차이 ≈ 약 330m 거리
+      final random = Random();
+      double latOffset = (random.nextDouble() - 0.5) * 0.006; // -0.003 ~ +0.003
+      double lngOffset = (random.nextDouble() - 0.5) * 0.006; 
+
+      // 진짜 위치 + 랜덤 오차 = 공개용 위치
+      double publicLat = position.latitude + latOffset;
+      double publicLng = position.longitude + lngOffset;
+
+      // ⚠️ 여기가 핵심! 진짜 위치 대신 '공개용 위치'를 저장합니다.
+      FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+        'location': GeoPoint(publicLat, publicLng), 
+        'isOnline': true,
+        'lastActive': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    }
     
+    // UI 업데이트 (내 마커와 반경 원은 진짜 위치 기준)
     setState(() {
       _currentPosition = position;
-      _updateMyMarker(); // 위치 찾으면 마커 찍기
-      _updateMyRadiusCircle(LatLng(position.latitude, position.longitude), _signatureColor); // 원 그리기 추가
+      _updateMyMarker(); 
+      _updateMyRadiusCircle(LatLng(position.latitude, position.longitude), _signatureColor);
     });
 
-    final user = FirebaseAuth.instance.currentUser;
-    // 👇 [추가] 서버에 내 위치 신고!
-    if (user != null) {
-      UserService().updateMyLocation(
-        user.uid, 
-        LatLng(position.latitude, position.longitude)
-      );
-    }
-
-    // [중요] 최초 1회는 찻잎 소모 없이 무조건 검색
+    // 최초 1회 주변 검색 (기존 로직 유지)
     if (_isFirstLoad) {
       _searchNearbyUsers(); 
-      _isFirstLoad = false; // 플래그 끄기
-    }
-
-    // 4. 지도 카메라 이동 (처음 한 번만)
-    if (_mapController != null) {
-      _mapController!.animateCamera(
-        CameraUpdate.newLatLng(LatLng(position.latitude, position.longitude)),
-      );
+      _isFirstLoad = false;
     }
   }
 
