@@ -29,6 +29,56 @@
       "api_key": [
         {
           "current_key": "AIzaSyDZl5_1Zc-6gHpPKlkPmooHgBss2b06NzQ"
+        },
+        {
+          "current_key": "AIzaSyD0SGYvj5UHsgFzuxQoTF3moDVxPfkrXo8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "75064126974-8o0u5u35mvbkctvr2ac451d9nv7ruaes.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "75064126974-fo9emd4bjsuf2qleecusqev6ta17d0dk.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.chahanjanApp"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:75064126974:android:b53867fe10f6a52b0764af",
+        "android_client_info": {
+          "package_name": "com.example.chahanjan_app2"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "75064126974-k65954bi5kk0o1lgtikqvvd4u6onrbae.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.chahanjan_app2",
+            "certificate_hash": "da39a3ee5e6b4b0d3255bfef95601890afd80709"
+          }
+        },
+        {
+          "client_id": "75064126974-8o0u5u35mvbkctvr2ac451d9nv7ruaes.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDZl5_1Zc-6gHpPKlkPmooHgBss2b06NzQ"
+        },
+        {
+          "current_key": "AIzaSyD0SGYvj5UHsgFzuxQoTF3moDVxPfkrXo8"
         }
       ],
       "services": {
