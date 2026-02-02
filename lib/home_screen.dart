@@ -1,5 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:chahanjan_app/screens/map_screen.dart';
+import 'package:chahanjan_app/screens/chat_list_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -25,7 +27,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     // 각 탭에 보여줄 화면들
     final List<Widget> pages = [
-      // [0번: 홈 탭] - 아까 보셨던 환영 화면
+      // [0번: 홈 탭] - 환영 화면
       Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -56,36 +58,21 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
 
-      // [1번: 지도 탭] - 나중에 지도 코드를 여기에 넣을 거예요
-      const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.map, size: 100, color: Colors.blue),
-            SizedBox(height: 20),
-            Text("여기에 지도가 나옵니다", style: TextStyle(fontSize: 20)),
-          ],
-        ),
-      ),
+      // [1번: 지도 탭] - 실제 MapScreen 연결
+      const MapScreen(),
 
-      // [2번: 채팅 탭] - 나중에 채팅 목록을 여기에 넣을 거예요
-      const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.chat_bubble, size: 100, color: Colors.green),
-            SizedBox(height: 20),
-            Text("여기에 채팅방이 나옵니다", style: TextStyle(fontSize: 20)),
-          ],
-        ),
-      ),
+      // [2번: 채팅 탭] - 실제 ChatListScreen 연결
+      const ChatListScreen(),
     ];
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("차한잔"),
-        centerTitle: true,
-      ),
+      // AppBar는 홈 탭일 때만 보여주기
+      appBar: _selectedIndex == 0 
+        ? AppBar(
+            title: const Text("차한잔"),
+            centerTitle: true,
+          )
+        : null,
       // 현재 선택된 페이지 보여주기
       body: pages[_selectedIndex],
       
