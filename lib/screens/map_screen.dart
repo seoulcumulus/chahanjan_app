@@ -451,7 +451,10 @@ class _MapScreenState extends State<MapScreen> {
                   heroTag: 'shop',
                   backgroundColor: Colors.white,
                   child: const Text("🍵", style: TextStyle(fontSize: 20)),
-                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ShopScreen())),
+                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ShopScreen(
+                    myInventory: [], // 임시 빈 목록
+                    onBuy: (item) {}, // 임시 빈 함수
+                  ))),
                 ),
                 const SizedBox(height: 10),
                 // 채팅 목록 버튼

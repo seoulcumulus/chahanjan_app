@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:math';
 import '../utils/app_strings.dart';
+import 'package:chahanjan_app/screens/shop_screen.dart'; // [추가] 상점 화면 import
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -487,7 +488,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text("보유 아바타 창고 (${_myInventory.length})", style: TextStyle(fontWeight: FontWeight.bold, color: _holyPurple)),
-            Icon(Icons.inventory_2, color: _holyPurple.withOpacity(0.5)),
+            // Icon(Icons.inventory_2, color: _holyPurple.withOpacity(0.5)), // 기존 아이콘 주석 처리
+            IconButton(
+              icon: const Icon(Icons.storefront, color: Colors.blue, size: 28),
+              
+              // 1. 여기에 async를 꼭 붙여야 await를 쓸 수 있습니다!
+              onPressed: () async {
+                
+                // 2. 상점으로 이동 (갔다 올 때까지 기다림 = await)
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    // ShopScreen에는 이제 복잡한 onBuy가 없어도 됩니다. 
+                    // (단, ShopScreen 내부에서 구매 시 Firebase에 저장은 해야 함!)
+                    builder: (context) => ShopScreen(
+                      myInventory: List<String>.from(_myInventory),
+                      onBuy: (newItem) {
+                         // ShopScreen 구조상 이 함수가 필요하다면 비워두거나,
+                         // 단순히 'print' 정도만 해도 됩니다. 
+                         // 왜냐? 돌아오면 어차피 서버에서 다시 불러올 거니까요!
+                      },
+                    ),
+                  ),
+                );
+
+                // 3. 상점에서 돌아오면 이 줄이 실행됩니다.
+                // 서버(Firebase)에서 최신 데이터를 다시 싹 긁어옵니다.
+                print("📢 상점에서 복귀! 인벤토리 새로고침 중...");
+                _loadUserProfile(); 
+              },
+            ),
           ],
         ),
         const SizedBox(height: 10),

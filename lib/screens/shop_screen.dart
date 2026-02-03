@@ -5,7 +5,16 @@ import 'dart:math';
 import '../utils/app_strings.dart'; // 다국어 파일
 
 class ShopScreen extends StatefulWidget {
-  const ShopScreen({super.key});
+  // 👇 [추가] 부모(창고)로부터 받아올 데이터들
+  final List<String> myInventory; // 내 창고 목록 (이미 산 건지 확인용)
+  final Function(String) onBuy;   // 구매하면 창고에 알려줄 함수
+
+  // 생성자에 required 추가
+  const ShopScreen({
+    super.key, 
+    required this.myInventory, // 👈 추가
+    required this.onBuy,       // 👈 추가
+  });
 
   @override
   State<ShopScreen> createState() => _ShopScreenState();
@@ -95,7 +104,7 @@ class _ShopScreenState extends State<ShopScreen> with SingleTickerProviderStateM
           final data = snapshot.data!.data() as Map<String, dynamic>;
           final int myTea = data['tea_leaves'] ?? 0;
           final String myLang = data['language'] ?? 'English';
-          final List<dynamic> unlockedAvatars = data['unlocked_avatars'] ?? ['avatar_1.png', 'rat.png']; 
+          final List<dynamic> unlockedAvatars = data['owned_avatars'] ?? ['avatar_1.png', 'rat.png']; 
           final String myZodiac = data['zodiac'] ?? '쥐'; // 기본값
 
           return Column(
@@ -337,13 +346,15 @@ class _ShopScreenState extends State<ShopScreen> with SingleTickerProviderStateM
     // 2. 아바타 목록에 추가
     await FirebaseFirestore.instance.collection('users').doc(uid).update({
       'tea_leaves': FieldValue.increment(-price),
-      'unlocked_avatars': FieldValue.arrayUnion([fileName]),
+      'owned_avatars': FieldValue.arrayUnion([fileName]),
     });
 
+    // 👇 [추가] 창고에 아이템 추가하라고 신호 보내기!
+    widget.onBuy(fileName);
+
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text("${AppStrings.getByLang(lang, 'buy_success')} 🎭"),
-        backgroundColor: _signatureColor,
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text("구매 완료! 창고에 배달되었습니다 📦"),
       ));
     }
   }
