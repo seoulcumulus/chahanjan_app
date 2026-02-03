@@ -43,6 +43,7 @@ dependencies:
   # 🌍 번역 기능 (Using 'translator' to avoid dio conflict with kakao)
   translator: ^1.0.0
   flutter_native_splash: ^2.4.1
+  flutter_card_swiper: ^7.2.0
 
 dev_dependencies:
   flutter_test:

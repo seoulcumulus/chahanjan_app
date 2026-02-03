@@ -1,7 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:chahanjan_app/screens/map_screen.dart';
-import 'package:chahanjan_app/screens/chat_list_screen.dart';
+import 'package:chahanjan_app/screens/matching_screen.dart'; // [추가]
 import 'package:chahanjan_app/screens/profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -27,15 +27,16 @@ class _HomeScreenState extends State<HomeScreen> {
     final user = FirebaseAuth.instance.currentUser;
 
     // 각 탭에 보여줄 화면들
+    // 각 탭에 보여줄 화면들
     final List<Widget> pages = [
-      // [0번: 내 정보] -> ProfileScreen 위젯 사용
-      const ProfileScreen(),
-
-      // [1번: 지도] - 실제 MapScreen 연결
+      // [0번: 지도] - 메인 화면
       const MapScreen(),
 
-      // [2번: 채팅] - 실제 ChatListScreen 연결
-      const ChatListScreen(),
+      // [1번: 매칭] - 새로운 기능!
+      const MatchingScreen(),
+
+      // [2번: 내 정보]
+      const ProfileScreen(),
     ];
 
     return Scaffold(
@@ -48,16 +49,19 @@ class _HomeScreenState extends State<HomeScreen> {
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: '내 정보',
-          ),
-          BottomNavigationBarItem(
             icon: Icon(Icons.map),
             label: '지도',
           ),
+          
+          // 3. 하단 탭 아이콘 추가
           BottomNavigationBarItem(
-            icon: Icon(Icons.chat),
-            label: '채팅',
+            icon: Icon(Icons.favorite), // 하트 아이콘
+            label: '매칭',
+          ),
+          
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person),
+            label: '내 정보',
           ),
         ],
         currentIndex: _selectedIndex,
