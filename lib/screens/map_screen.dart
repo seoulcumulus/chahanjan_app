@@ -33,6 +33,7 @@ class _MapScreenState extends State<MapScreen> {
   
   // 2. 내 위치 및 마커 상태
   Position? _currentPosition;
+  LatLng? _myPosition; // [추가] 가짜 위치 (마커용)
 
   
   // 1. 🟢 내 마커 (내 아바타 전용)
@@ -134,13 +135,17 @@ class _MapScreenState extends State<MapScreen> {
 
   // 📍 마커를 지도에 찍는 함수
   void _updateMyMarker() {
-    if (_currentPosition == null) return;
+    if (_myPosition == null && _currentPosition == null) return;
+
+    // 우선순위: 가짜 위치(_myPosition) > 진짜 위치(_currentPosition)
+    // 아바타는 '가짜 위치'에 보여야 하니까요!
+    final targetPos = _myPosition ?? LatLng(_currentPosition!.latitude, _currentPosition!.longitude);
 
     setState(() {
       _myMarker = {
         Marker(
           markerId: const MarkerId('me'),
-          position: LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
+          position: targetPos,
           // 아이콘이 준비되었으면 내 캐릭터, 아니면 기본 핀
           icon: _myMarkerIcon ?? BitmapDescriptor.defaultMarker, 
           infoWindow: const InfoWindow(title: "나"),
@@ -165,58 +170,58 @@ class _MapScreenState extends State<MapScreen> {
     });
   }
 
+  // 📍 위치 정보 서버 전송 (가짜 위치 저장)
+  void _updateUserLocation(double lat, double lng) {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    
+    FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+      'location': GeoPoint(lat, lng), 
+      'isOnline': true,
+      'lastActive': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
 
 
   // 📍 내 위치 가져오기 (보안 강화 버전)
   Future<void> _getCurrentLocation() async {
-    // 1. 권한 확인 (기존 동일)
+    // 1. 권한 확인 (기존과 동일)
     LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) return;
     }
 
-    // 2. 진짜 내 위치 가져오기 (정확함)
+    // 2. 진짜 내 위치 가져오기 (GPS)
     Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high);
 
-    // 3. 지도 카메라는 '내 진짜 위치'를 보여줌 (나는 내가 어디 있는지 알아야 하니까)
-    _mapController?.animateCamera(
-      CameraUpdate.newCameraPosition(
-        CameraPosition(
-          target: LatLng(position.latitude, position.longitude),
-          zoom: 15,
-        ),
-      ),
-    );
+    // 3. 🚨 [핵심] 강제로 위치 떼어놓기 (0.005도 = 약 500m ~ 700m 차이)
+    // 랜덤 말고 고정값으로 더해서 확실하게 밀어버립니다.
+    double offset = 0.005; 
+    double publicLat = position.latitude + offset;  // 위로 500m 이동
+    double publicLng = position.longitude + offset; // 오른쪽으로 500m 이동
 
-    // 🛡️ 4. 서버에 저장할 때는 '가짜 위치(Fuzzy Location)' 만들기!
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      // 랜덤 오차 생성 (대략 반경 300m~500m 내외)
-      // 위도/경도 0.003도 차이 ≈ 약 330m 거리
-      final random = Random();
-      double latOffset = (random.nextDouble() - 0.5) * 0.006; // -0.003 ~ +0.003
-      double lngOffset = (random.nextDouble() - 0.5) * 0.006; 
-
-      // 진짜 위치 + 랜덤 오차 = 공개용 위치
-      double publicLat = position.latitude + latOffset;
-      double publicLng = position.longitude + lngOffset;
-
-      // ⚠️ 여기가 핵심! 진짜 위치 대신 '공개용 위치'를 저장합니다.
-      FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-        'location': GeoPoint(publicLat, publicLng), 
-        'isOnline': true,
-        'lastActive': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-    }
-    
-    // UI 업데이트 (내 마커와 반경 원은 진짜 위치 기준)
     setState(() {
-      _currentPosition = position;
+      // 👇 여기가 제일 중요합니다!
+      // 지도의 중심은 '내 진짜 위치'로 잡고...
+      _currentPosition = position; 
+
+      // � 마커(아바타)는 '가짜 위치'에 찍어야 합니다!
+      // 혹시 여기가 LatLng(position.latitude, position.longitude)로 되어 있지 않았나요?
+      _myPosition = LatLng(publicLat, publicLng); 
       _updateMyMarker(); 
       _updateMyRadiusCircle(LatLng(position.latitude, position.longitude), _signatureColor);
     });
+
+    // 4. 파이어베이스에 저장 (가짜 위치를 저장)
+    _updateUserLocation(publicLat, publicLng);
+    
+    // 5. 카메라 이동 (내 진짜 위치와 가짜 위치 사이쯤을 비춤)
+    _mapController?.animateCamera(
+      CameraUpdate.newLatLng(LatLng(position.latitude, position.longitude)),
+    );
 
     // 최초 1회 주변 검색 (기존 로직 유지)
     if (_isFirstLoad) {
