@@ -480,21 +480,72 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   // 인벤토리 위젯 (기존 성스러운 디자인 유지)
   Widget _buildInventory() {
-    return Container(
-      height: 140,
-      padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 10),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)], border: Border.all(color: _holyPurple.withOpacity(0.1))),
-      child: _myInventory.isEmpty ? const Center(child: Text("비었음")) : ListView.separated(
-        scrollDirection: Axis.horizontal, itemCount: _myInventory.length, separatorBuilder: (_, __) => const SizedBox(width: 20),
-        itemBuilder: (context, index) {
-          final avatar = _myInventory[index];
-          final isSelected = avatar == _selectedAvatar;
-          return GestureDetector(onTap: () => setState(() => _selectedAvatar = avatar), child: Column(children: [
-            Container(padding: const EdgeInsets.all(4), decoration: BoxDecoration(shape: BoxShape.circle, border: isSelected ? Border.all(color: _holyGold, width: 3) : Border.all(color: Colors.grey[200]!, width: 1), color: Colors.white), child: CircleAvatar(radius: 32, backgroundColor: Colors.grey[50], child: Image.asset('assets/avatars/$avatar', fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.person)))),
-            if (isSelected) const Icon(Icons.check_circle, size: 16, color: Colors.green)
-          ]));
-        }
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text("보유 아바타 창고 (${_myInventory.length})", style: TextStyle(fontWeight: FontWeight.bold, color: _holyPurple)),
+            Icon(Icons.inventory_2, color: _holyPurple.withOpacity(0.5)),
+          ],
+        ),
+        const SizedBox(height: 10),
+        
+        // ✨ 여기가 핵심! 가로 스크롤(ListView)을 -> 격자(GridView)로 변경
+        Container(
+          padding: const EdgeInsets.all(15),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [BoxShadow(color: _holyPurple.withOpacity(0.05), blurRadius: 10)],
+            border: Border.all(color: _holyPurple.withOpacity(0.1)),
+          ),
+          child: GridView.builder(
+            shrinkWrap: true, // 이게 있어야 스크롤 에러가 안 납니다
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: _myInventory.length,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3, // 한 줄에 3개씩!
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+              childAspectRatio: 0.8, // 세로로 길쭉한 카드 비율
+            ),
+            itemBuilder: (context, index) {
+              final avatar = _myInventory[index];
+              final isSelected = avatar == _selectedAvatar;
+              return GestureDetector(
+                onTap: () => setState(() => _selectedAvatar = avatar),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: isSelected ? _holyGold.withOpacity(0.1) : Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isSelected ? _holyGold : Colors.grey[200]!, 
+                      width: isSelected ? 2 : 1
+                    ),
+                  ),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Image.asset('assets/avatars/$avatar', height: 50, errorBuilder: (_,__,___)=>const Icon(Icons.person)),
+                          const SizedBox(height: 5),
+                          Text(avatar.split('.')[0], style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                      if (isSelected)
+                        const Positioned(top: 5, right: 5, child: Icon(Icons.check_circle, color: Colors.green, size: 16)),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }
