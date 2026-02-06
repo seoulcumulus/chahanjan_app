@@ -3,6 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import '../services/user_service.dart'; // UserService 경로 확인 필요
+
+import 'package:chahanjan_app/utils/translations.dart'; // [추가] 번역 파일
 import 'chat_screen.dart';
 
 class ChatListScreen extends StatelessWidget {
@@ -28,7 +30,7 @@ class ChatListScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('채팅 목록 💬'),
+        title: Text(AppLocale.t('chat_title')),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         elevation: 0,
@@ -73,10 +75,10 @@ class ChatListScreen extends StatelessWidget {
             children: [
               // 🟢 1. 대화 중인 방 (상단)
               if (activeChats.isNotEmpty) ...[
-                const Padding(
+                Padding(
                   padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
-                  child: Text("💬 대화 중인 방",
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                  child: Text(AppLocale.t('chat_active'),
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
                 ),
                 ...activeChats.map((doc) => _buildChatTile(context, doc, myUid, isActive: true)),
               ],
@@ -84,10 +86,10 @@ class ChatListScreen extends StatelessWidget {
               // 🟠 2. 대기 중인 요청 (하단)
               if (pendingChats.isNotEmpty) ...[
                 if (activeChats.isNotEmpty) const Divider(thickness: 8, color: Colors.grey), // 구분선
-                const Padding(
+                Padding(
                   padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
-                  child: Text("⏳ 대기 중인 요청",
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                  child: Text(AppLocale.t('chat_waiting'),
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
                 ),
                 ...pendingChats.map((doc) => _buildChatTile(context, doc, myUid, isActive: false)),
               ],
@@ -112,12 +114,12 @@ class ChatListScreen extends StatelessWidget {
     return FutureBuilder<DocumentSnapshot>(
       future: FirebaseFirestore.instance.collection('users').doc(peerUid).get(),
       builder: (context, userSnapshot) {
-        String peerNickname = '알 수 없음';
+        String peerNickname = AppLocale.t('unknown_user');
         String peerAvatar = 'rat.png';
 
         if (userSnapshot.hasData && userSnapshot.data!.exists) {
           final userData = userSnapshot.data!.data() as Map<String, dynamic>;
-          peerNickname = userData['nickname'] ?? '알 수 없음';
+          peerNickname = userData['nickname'] ?? AppLocale.t('unknown_user');
           peerAvatar = userData['avatar_image'] ?? 'rat.png';
         }
 
@@ -132,7 +134,7 @@ class ChatListScreen extends StatelessWidget {
           subtitle: isActive
               ? Text(data['lastMessage'] ?? '', maxLines: 1, overflow: TextOverflow.ellipsis)
               : Text(
-                  isReceivedRequest ? "대화를 요청했어요! 👇" : "상대방의 수락을 기다리는 중...",
+                  isReceivedRequest ? AppLocale.t('msg_received') : AppLocale.t('msg_wait'),
                   style: TextStyle(color: isReceivedRequest ? Colors.blue : Colors.grey),
                 ),
           
@@ -168,7 +170,7 @@ class ChatListScreen extends StatelessWidget {
                             // ✅ 수락 버튼 클릭!
                             UserService().acceptChatRequest(doc.id);
                           },
-                          child: const Text("수락", style: TextStyle(fontSize: 12)),
+                          child: Text(AppLocale.t('accept'), style: const TextStyle(fontSize: 12)),
                         ),
                         const SizedBox(width: 8),
                         IconButton(

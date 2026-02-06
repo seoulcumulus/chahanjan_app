@@ -27,24 +27,28 @@ class UserService {
     }).toList();
   }
   // 🍵 찻잎 차감 (결제 처리)
-  Future<bool> deductTeaLeaf(String uid, {int amount = 1}) async {
+  // 🍵 찻잎 차감 (결제 처리) - 트랜잭션 적용
+  Future<bool> deductTeaLeaf(String uid) async {
     try {
-      DocumentSnapshot doc = await _firestore.collection('users').doc(uid).get();
-      if (!doc.exists) return false;
+      final userRef = _firestore.collection('users').doc(uid);
+      
+      // 트랜잭션으로 안전하게 차감 (동시성 문제 해결)
+      return await _firestore.runTransaction((transaction) async {
+        final snapshot = await transaction.get(userRef);
+        if (!snapshot.exists) return false;
 
-      int currentTea = (doc.data() as Map<String, dynamic>)['tea_leaves'] ?? 0;
-
-      if (currentTea >= amount) {
-        await _firestore.collection('users').doc(uid).update({
-          'tea_leaves': FieldValue.increment(-amount),
-        });
-        return true; 
-      } else {
-        return false;
-      }
+        final int currentTea = snapshot.data()?['tea_leaves'] ?? 0;
+        
+        if (currentTea >= 1) {
+          transaction.update(userRef, {'tea_leaves': currentTea - 1});
+          return true; // 성공
+        } else {
+          return false; // 잔액 부족
+        }
+      });
     } catch (e) {
       print("❌ 찻잎 차감 오류: $e");
-      return false; 
+      return false;
     }
   }
 

@@ -20,6 +20,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:chahanjan_app/utils/app_colors.dart'; // import 추가
 import 'dart:ui'; // Added
+import 'package:chahanjan_app/utils/translations.dart'; // [추가] 번역 파일
+
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -61,42 +63,53 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'ChaHanJan',
-      theme: ThemeData(
-        // 🩵 메인 색상 테마 적용
-        primaryColor: AppColors.primary,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: AppColors.primary,
-          primary: AppColors.primary, // 주요 부위 색상
-          secondary: AppColors.accent,
-        ),
-        
-        // 앱바 색상 통일
-        appBarTheme: const AppBarTheme(
-          backgroundColor: AppColors.primary,
-          foregroundColor: Colors.white, // 글자색
-          elevation: 0,
-        ),
-        
-        // 버튼 색상 통일
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            foregroundColor: Colors.white,
+    // 👇 여기가 핵심입니다! AppLocale의 확성기를 감시합니다.
+    return ValueListenableBuilder<String>(
+      valueListenable: AppLocale.currentNotifier, // 무엇을 감시하나요? 언어 변경!
+      builder: (context, currentLang, child) {
+        return MaterialApp(
+          // 언어가 바뀌면 이 key가 바뀌면서 앱을 강제로 다시 그립니다.
+          key: ValueKey(currentLang), 
+          
+          // 제목도 번역된 걸로 나오게 수정!
+          title: AppLocale.t('app_title'),
+          
+          theme: ThemeData(
+            // 🩵 메인 색상 테마 적용
+            primaryColor: AppColors.primary,
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: AppColors.primary,
+              primary: AppColors.primary, // 주요 부위 색상
+              secondary: AppColors.accent,
+            ),
+            
+            // 앱바 색상 통일
+            appBarTheme: const AppBarTheme(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white, // 글자색
+              elevation: 0,
+            ),
+            
+            // 버튼 색상 통일
+            elevatedButtonTheme: ElevatedButtonThemeData(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+              ),
+            ),
+            
+            useMaterial3: true,
           ),
-        ),
-        
-        useMaterial3: true,
-      ),
-      // 🚪 문지기 역할 - 로그인 여부 확인
-      home: const AuthGate(),
-      routes: {
-        '/login': (context) => const LoginScreen(),
-        '/signup': (context) => const SignupScreen(),
-        '/map': (context) => const MapScreen(),
-        '/profile_setup': (context) => const ProfileSetupScreen(),
-        '/lounge': (context) => const LoungeScreen(), // Added
+          // 🚪 문지기 역할 - 로그인 여부 확인
+          home: const AuthGate(),
+          routes: {
+            '/login': (context) => const LoginScreen(),
+            '/signup': (context) => const SignupScreen(),
+            '/map': (context) => const MapScreen(),
+            '/profile_setup': (context) => const ProfileSetupScreen(),
+            '/lounge': (context) => const LoungeScreen(), // Added
+          },
+        );
       },
     );
   }

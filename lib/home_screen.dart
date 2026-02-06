@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:chahanjan_app/screens/map_screen.dart';
 import 'package:chahanjan_app/screens/matching_screen.dart'; // [추가]
 import 'package:chahanjan_app/screens/profile_screen.dart';
+import 'package:chahanjan_app/utils/translations.dart'; // [추가] 번역 파일
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -47,21 +48,21 @@ class _HomeScreenState extends State<HomeScreen> {
       
       // 하단 내비게이션 바 (메뉴)
       bottomNavigationBar: BottomNavigationBar(
-        items: const <BottomNavigationBarItem>[
+        items: <BottomNavigationBarItem>[ // [수정] const 제거
           BottomNavigationBarItem(
-            icon: Icon(Icons.map),
-            label: '지도',
+            icon: const Icon(Icons.map),
+            label: AppLocale.t('nav_map'),
           ),
           
           // 3. 하단 탭 아이콘 추가
           BottomNavigationBarItem(
-            icon: Icon(Icons.favorite), // 하트 아이콘
-            label: '매칭',
+            icon: const Icon(Icons.favorite), // 하트 아이콘
+            label: AppLocale.t('nav_matching'),
           ),
           
           BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: '내 정보',
+            icon: const Icon(Icons.person),
+            label: AppLocale.t('nav_profile'),
           ),
         ],
         currentIndex: _selectedIndex,

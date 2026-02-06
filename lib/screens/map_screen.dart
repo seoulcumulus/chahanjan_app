@@ -15,6 +15,7 @@ import 'shop_screen.dart';
 import 'chat_list_screen.dart'; // 채팅 목록 화면 (만드셨다면)
 import 'chat_screen.dart'; // [추가] 채팅 화면
 import '../utils/app_strings.dart';
+import '../utils/translations.dart'; // [추가] 번역 파일
 import '../services/user_service.dart'; // [추가]
 
 class MapScreen extends StatefulWidget {
@@ -242,7 +243,7 @@ class _MapScreenState extends State<MapScreen> {
       // ✅ 성공: 검색 시작
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("찻잎 1잔을 내고 주변 친구들을 찾습니다! 🍵👀")),
+          SnackBar(content: Text(AppLocale.t('search_start'))),
         );
       }
       _searchNearbyUsers(isPaid: true); // (아까 만든 진짜 유저 검색 함수)
@@ -250,7 +251,7 @@ class _MapScreenState extends State<MapScreen> {
       // ❌ 실패: 잔액 부족
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("찻잎이 부족해요! 상점에서 충전해 주세요. 🍂")),
+          SnackBar(content: Text(AppLocale.t('tea_low'))),
         );
       }
     }
@@ -344,7 +345,7 @@ class _MapScreenState extends State<MapScreen> {
           // 3단계에서 채팅 연결할 때 이 정보가 쓰입니다 👇
           infoWindow: InfoWindow(
             title: user['nickname'],
-            snippet: "터치해서 대화하기 👋", 
+            snippet: "${AppLocale.t('map_snippet')} 👋", 
             onTap: () {
                // 찻잎 소모 로직 적용
                _onUserMarkerTapped(user['id'], user['nickname'], user['avatar']);
@@ -554,7 +555,7 @@ class _MapScreenState extends State<MapScreen> {
                 children: [
                   // 현재 설정된 거리 텍스트 표시 (예: 2.5 km)
                   Text(
-                    "반경: ${(_currentRadius / 1000).toStringAsFixed(1)} km",
+                    "${AppLocale.t('radius')}: ${(_currentRadius / 1000).toStringAsFixed(1)} km",
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                   ),
                   

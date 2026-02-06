@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_card_swiper/flutter_card_swiper.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../utils/translations.dart'; // [추가] 번역 파일
 
 class MatchingScreen extends StatefulWidget {
   const MatchingScreen({super.key});
@@ -83,11 +84,11 @@ class _MatchingScreenState extends State<MatchingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("성스러운 매칭 💞")),
+      appBar: AppBar(title: Text(AppLocale.t('matching_title'))),
       body: _isLoading 
           ? const Center(child: CircularProgressIndicator()) // 로딩 중일 때
           : _candidates.isEmpty
-              ? const Center(child: Text("더 이상 추천할 친구가 없어요 😢")) // 다 봤을 때
+              ? Center(child: Text(AppLocale.t('no_more_friends'))) // 다 봤을 때
               : Column(
                   children: [
                     Expanded(

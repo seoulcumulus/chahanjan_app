@@ -1,19 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'dart:math';
-import '../utils/app_strings.dart'; // 다국어 파일
+import 'package:chahanjan_app/utils/translations.dart'; // ✅ 번역기
+import 'package:chahanjan_app/utils/bible_service.dart'; // ✅ 말씀 서비스 (import 확인!)
 
 class ShopScreen extends StatefulWidget {
-  // 👇 [추가] 부모(창고)로부터 받아올 데이터들
-  final List<String> myInventory; // 내 창고 목록 (이미 산 건지 확인용)
-  final Function(String) onBuy;   // 구매하면 창고에 알려줄 함수
+  final List<String> myInventory;
+  final Function(String) onBuy;
 
-  // 생성자에 required 추가
   const ShopScreen({
-    super.key, 
-    required this.myInventory, // 👈 추가
-    required this.onBuy,       // 👈 추가
+    super.key,
+    required this.myInventory,
+    required this.onBuy,
   });
 
   @override
@@ -24,38 +22,29 @@ class _ShopScreenState extends State<ShopScreen> with SingleTickerProviderStateM
   final Color _signatureColor = const Color(0xFF24FCFF);
   late TabController _tabController;
 
-  // 찻잎 상품 목록 (개수, 키값)
+  // 찻잎 상품 목록
   final List<Map<String, dynamic>> _teaBundles = [
-    {'amount': 10, 'key': '10'},
-    {'amount': 50, 'key': '50'},
-    {'amount': 100, 'key': '100'},
-    {'amount': 200, 'key': '200'},
-    {'amount': 500, 'key': '500'},
-    {'amount': 1000, 'key': '1000'},
+    {'amount': 10, 'key': '10', 'price_label': '1,000₩'}, // 가격표 임시 표기
+    {'amount': 50, 'key': '50', 'price_label': '4,500₩'},
+    {'amount': 100, 'key': '100', 'price_label': '9,000₩'},
+    // ...
   ];
 
-  // 12지신 아바타 목록 (파일명, 가격)
+  // 아바타 목록
   final List<Map<String, dynamic>> _avatarItems = [
-    {'file': 'avatar_1.png', 'price': 50}, // 기본 아바타
     {'file': 'rat.png', 'price': 50},
     {'file': 'ox.png', 'price': 50},
     {'file': 'tiger.png', 'price': 50},
     {'file': 'rabbit.png', 'price': 50},
-    {'file': 'dragon.png', 'price': 100}, // 용은 좀 더 비싸게?
+    {'file': 'dragon.png', 'price': 100},
     {'file': 'snake.png', 'price': 50},
-    {'file': 'snake1.png', 'price': 50}, // 뱀 (다른 버전)
-    {'file': 'horse.png', 'price': 50},
-    {'file': 'sheep.png', 'price': 50},
-    {'file': 'monkey.png', 'price': 50},
-    {'file': 'rooster.png', 'price': 50},
-    {'file': 'dog.png', 'price': 50},
-    {'file': 'pig.png', 'price': 50},
+    // ... 나머지 12지신
   ];
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this); // 3 tabs now
+    _tabController = TabController(length: 3, vsync: this);
   }
 
   @override
@@ -72,16 +61,8 @@ class _ShopScreenState extends State<ShopScreen> with SingleTickerProviderStateM
     return Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
-        title: StreamBuilder<DocumentSnapshot>(
-          stream: FirebaseFirestore.instance.collection('users').doc(user.uid).snapshots(),
-          builder: (context, snapshot) {
-            String lang = 'English';
-            if (snapshot.hasData && snapshot.data!.exists) {
-              lang = snapshot.data!['language'] ?? 'English';
-            }
-            return Text(AppStrings.getByLang(lang, 'shop_title'), style: const TextStyle(fontWeight: FontWeight.bold));
-          },
-        ),
+        // ✅ [수정] AppStrings 삭제 -> AppLocale.t 사용
+        title: Text(AppLocale.t('shop_title'), style: const TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         elevation: 0,
@@ -89,10 +70,11 @@ class _ShopScreenState extends State<ShopScreen> with SingleTickerProviderStateM
           controller: _tabController,
           labelColor: Colors.black,
           indicatorColor: _signatureColor,
-          tabs: const [
-            Tab(text: "Tea Shop 🍵"),
-            Tab(text: "Avatar Shop 🎭"),
-            Tab(text: "Fortune 🔮"),
+          // 🚨 [수정] const 제거! (번역기 때문에 변해야 함)
+          tabs: [
+            Tab(text: AppLocale.t('tab_tea')),     // 찻잎 상점
+            Tab(text: AppLocale.t('tab_avatar')),  // 아바타 상점
+            Tab(text: AppLocale.t('tab_fortune')), // 성스러운 신탁
           ],
         ),
       ),
@@ -103,21 +85,18 @@ class _ShopScreenState extends State<ShopScreen> with SingleTickerProviderStateM
 
           final data = snapshot.data!.data() as Map<String, dynamic>;
           final int myTea = data['tea_leaves'] ?? 0;
-          final String myLang = data['language'] ?? 'English';
-          final List<dynamic> unlockedAvatars = data['owned_avatars'] ?? ['avatar_1.png', 'rat.png']; 
-          final String myZodiac = data['zodiac'] ?? '쥐'; // 기본값
+          // owned_avatars는 이제 부모(widget.myInventory)나 DB에서 가져옴
+          final List<dynamic> unlockedAvatars = data['owned_avatars'] ?? [];
+          final String myZodiac = data['zodiac'] ?? '쥐';
 
           return Column(
             children: [
-              // 1. 상점 메인 이미지 & 내 지갑 (공통 상단)
+              // 1. 상단 이미지 & 지갑
               Container(
                 width: double.infinity,
                 height: 150,
                 decoration: const BoxDecoration(
-                  image: DecorationImage(
-                    image: AssetImage('assets/shop_image.png'),
-                    fit: BoxFit.cover,
-                  ),
+                  image: DecorationImage(image: AssetImage('assets/shop_image.png'), fit: BoxFit.cover),
                 ),
               ),
               Container(
@@ -126,7 +105,7 @@ class _ShopScreenState extends State<ShopScreen> with SingleTickerProviderStateM
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(AppStrings.getByLang(myLang, 'tea_leaves'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    Text(AppLocale.t('tea_leaves'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
                       decoration: BoxDecoration(color: _signatureColor.withOpacity(0.2), borderRadius: BorderRadius.circular(20)),
@@ -141,20 +120,15 @@ class _ShopScreenState extends State<ShopScreen> with SingleTickerProviderStateM
                   ],
                 ),
               ),
-              
-              // 2. 탭 뷰 (찻잎 상점 / 아바타 상점 / 운세)
+
+              // 2. 탭 뷰
               Expanded(
                 child: TabBarView(
                   controller: _tabController,
                   children: [
-                    // [탭 1] 찻잎 충전소
-                    _buildTeaShop(myLang, user.uid),
-
-                    // [탭 2] 아바타 상점
-                    _buildAvatarShop(myLang, user.uid, myTea, unlockedAvatars),
-
-                    // [탭 3] 운세
-                    _buildFortuneTab(myLang, user.uid, myTea, myZodiac),
+                    _buildTeaShop(user.uid),
+                    _buildAvatarShop(user.uid, myTea, unlockedAvatars),
+                    _buildFortuneTab(user.uid, myTea, myZodiac),
                   ],
                 ),
               ),
@@ -165,22 +139,19 @@ class _ShopScreenState extends State<ShopScreen> with SingleTickerProviderStateM
     );
   }
 
-  // 🍵 찻잎 상점 뷰
-  Widget _buildTeaShop(String lang, String uid) {
+  // 🍵 찻잎 상점
+  Widget _buildTeaShop(String uid) {
     return ListView.builder(
       padding: const EdgeInsets.all(15),
       itemCount: _teaBundles.length,
       itemBuilder: (context, index) {
         final bundle = _teaBundles[index];
         final amount = bundle['amount'] as int;
-        final key = bundle['key'] as String;
-        final name = AppStrings.getByLang(lang, 'tea_$key');
-        final price = AppStrings.getByLang(lang, 'price_$key');
+        final priceLabel = bundle['price_label'] as String; // 실제 결제 연동 전 표시용
 
         return Card(
           margin: const EdgeInsets.only(bottom: 10),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-          elevation: 2,
           child: ListTile(
             contentPadding: const EdgeInsets.all(15),
             leading: Container(
@@ -188,16 +159,15 @@ class _ShopScreenState extends State<ShopScreen> with SingleTickerProviderStateM
               decoration: BoxDecoration(color: _signatureColor.withOpacity(0.2), shape: BoxShape.circle),
               child: const Text("🍵", style: TextStyle(fontSize: 24)),
             ),
-            title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            title: Text("$amount Tea Leaves", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
             trailing: ElevatedButton(
-              onPressed: () => _buyTeaLeaves(uid, amount, lang),
+              onPressed: () => _buyTeaLeaves(uid, amount),
               style: ElevatedButton.styleFrom(
                 backgroundColor: _signatureColor,
                 foregroundColor: Colors.black,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               ),
-              child: Text(price, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              child: Text(priceLabel, style: const TextStyle(fontWeight: FontWeight.bold)),
             ),
           ),
         );
@@ -205,52 +175,47 @@ class _ShopScreenState extends State<ShopScreen> with SingleTickerProviderStateM
     );
   }
 
-  // 🎭 아바타 상점 뷰
-  Widget _buildAvatarShop(String lang, String uid, int myTea, List<dynamic> unlockedAvatars) {
+  // 🎭 아바타 상점
+  Widget _buildAvatarShop(String uid, int myTea, List<dynamic> unlockedAvatars) {
     return GridView.builder(
       padding: const EdgeInsets.all(15),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2, // 2열
-        childAspectRatio: 0.8,
-        crossAxisSpacing: 15,
-        mainAxisSpacing: 15,
+        crossAxisCount: 2, childAspectRatio: 0.8, crossAxisSpacing: 15, mainAxisSpacing: 15,
       ),
       itemCount: _avatarItems.length,
       itemBuilder: (context, index) {
         final item = _avatarItems[index];
         final fileName = item['file'] as String;
         final price = item['price'] as int;
-        final isUnlocked = unlockedAvatars.contains(fileName);
+        
+        // 내 창고 목록(widget.myInventory) 또는 DB 데이터(unlockedAvatars) 확인
+        final isUnlocked = unlockedAvatars.contains(fileName) || widget.myInventory.contains(fileName);
 
         return Container(
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(15),
             border: isUnlocked ? Border.all(color: _signatureColor, width: 2) : null,
-            boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 5)],
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // 아바타 이미지
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.all(10),
                   child: Image.asset('assets/avatars/$fileName', fit: BoxFit.contain),
                 ),
               ),
-              
-              // 가격 또는 보유중 표시
               Padding(
                 padding: const EdgeInsets.all(10),
                 child: isUnlocked
                   ? Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(20)),
-                      child: const Text("Owned", style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+                      child: Text(AppLocale.t('owned'), style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
                     )
                   : ElevatedButton(
-                      onPressed: () => _buyAvatar(uid, fileName, price, myTea, lang),
+                      onPressed: () => _buyAvatar(uid, fileName, price, myTea),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: _signatureColor,
                         foregroundColor: Colors.black,
@@ -266,8 +231,8 @@ class _ShopScreenState extends State<ShopScreen> with SingleTickerProviderStateM
     );
   }
 
-  // 🔮 운세 탭 뷰
-  Widget _buildFortuneTab(String lang, String uid, int myTea, String zodiac) {
+  // 🔮 운세 (성경 말씀) 탭
+  Widget _buildFortuneTab(String uid, int myTea, String zodiac) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(30),
@@ -276,40 +241,20 @@ class _ShopScreenState extends State<ShopScreen> with SingleTickerProviderStateM
           children: [
             const Icon(Icons.auto_awesome, size: 80, color: Colors.purple),
             const SizedBox(height: 20),
-            const Text(
-              "오늘의 연애운세",
-              style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-            ),
+            Text(AppLocale.t('fortune_title'), style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
             const SizedBox(height: 10),
-            Text(
-              "찻잎 1개로 오늘의 운세를 확인하세요!",
-              style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-            ),
+            Text(AppLocale.t('fortune_desc'), style: TextStyle(fontSize: 16, color: Colors.grey[600])),
             const SizedBox(height: 40),
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.2), blurRadius: 10)],
+            ElevatedButton.icon(
+              onPressed: () => _showHolyRevelation(uid, myTea), // ✅ 여기! 성경 말씀 함수로 연결
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _signatureColor,
+                foregroundColor: Colors.black,
+                padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
               ),
-              child: Column(
-                children: [
-                  Text("당신의 띠: $zodiac", style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 20),
-                  ElevatedButton.icon(
-                    onPressed: () => _checkHoroscope(zodiac, myTea, uid, lang),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _signatureColor,
-                      foregroundColor: Colors.black,
-                      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                    ),
-                    icon: const Icon(Icons.favorite, size: 24),
-                    label: const Text("운세 보기 (1🍵)", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                  ),
-                ],
-              ),
+              icon: const Icon(Icons.menu_book, size: 24),
+              label: Text("${AppLocale.t('view_fortune')} (1🍵)", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             ),
           ],
         ),
@@ -317,97 +262,80 @@ class _ShopScreenState extends State<ShopScreen> with SingleTickerProviderStateM
     );
   }
 
-  // 💰 찻잎 구매 로직
-  void _buyTeaLeaves(String uid, int amount, String lang) async {
+  // --- 기능 함수들 ---
+
+  void _buyTeaLeaves(String uid, int amount) async {
     await FirebaseFirestore.instance.collection('users').doc(uid).update({
       'tea_leaves': FieldValue.increment(amount),
     });
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text("${AppStrings.getByLang(lang, 'buy_success')} (+ $amount 🍵)"),
-        backgroundColor: _signatureColor,
-        duration: const Duration(seconds: 1),
-      ));
-    }
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocale.t('buy_success'))));
   }
 
-  // 🎭 아바타 구매 로직
-  void _buyAvatar(String uid, String fileName, int price, int myTea, String lang) async {
+  void _buyAvatar(String uid, String fileName, int price, int myTea) async {
     if (myTea < price) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(AppStrings.getByLang(lang, 'not_enough_tea')),
-        backgroundColor: Colors.redAccent,
-      ));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocale.t('not_enough_tea')), backgroundColor: Colors.red));
       return;
     }
-
-    // 1. 찻잎 차감
-    // 2. 아바타 목록에 추가
     await FirebaseFirestore.instance.collection('users').doc(uid).update({
       'tea_leaves': FieldValue.increment(-price),
       'owned_avatars': FieldValue.arrayUnion([fileName]),
     });
-
-    // 👇 [추가] 창고에 아이템 추가하라고 신호 보내기!
-    widget.onBuy(fileName);
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text("구매 완료! 창고에 배달되었습니다 📦"),
-      ));
-    }
+    widget.onBuy(fileName); // 창고 업데이트 알림
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocale.t('buy_success'))));
   }
 
-  // 🔮 운세 보기 함수 (찻잎 1개 소모)
-  void _checkHoroscope(String userZodiac, int currentTea, String uid, String lang) async {
-    // 1. 찻잎이 부족한 경우
-    if (currentTea < 1) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(AppStrings.getByLang(lang, 'not_enough_tea')),
-        backgroundColor: Colors.redAccent,
-      ));
+  // 📖 성스러운 말씀 뽑기 (BibleService 연동)
+  void _showHolyRevelation(String uid, int myTea) async {
+    if (myTea < 1) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocale.t('not_enough_tea')), backgroundColor: Colors.red));
       return;
     }
 
-    // 2. 찻잎 차감
+    // 1. 찻잎 차감
     await FirebaseFirestore.instance.collection('users').doc(uid).update({
       'tea_leaves': FieldValue.increment(-1),
     });
 
-    // 3. 운세 결과 보여주기 (랜덤 멘트)
-    List<String> loveLuck = [
-      "💖 오늘은 운명의 상대를 만날 수 있어요!",
-      "💌 연락이 뜸했던 사람에게서 소식이 올지도?",
-      "🔥 적극적으로 다가가면 사랑을 얻습니다.",
-      "🤔 오늘은 조용히 나만의 시간을 갖는 게 좋아요.",
-      "✨ 새로운 만남이 기다리고 있어요!",
-      "💫 상대방의 마음이 조금씩 열리고 있습니다.",
-      "🌟 진심을 표현하면 좋은 결과가 있을 거예요.",
-      "💕 운명의 장난이 기다리고 있네요!",
-    ];
+    // 2. 말씀 가져오기 (비동기)
+    showDialog(context: context, barrierDismissible: false, builder: (_) => const Center(child: CircularProgressIndicator()));
     
+    // ✅ BibleService 사용!
+    final verseData = await BibleService.getRandomVerse(); 
+    
+    if (!mounted) return;
+    Navigator.pop(context); // 로딩 끄기
+
+    // 3. 팝업 보여주기
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: Text("$userZodiac 띠의 오늘 연애운 💘", style: const TextStyle(fontWeight: FontWeight.bold)),
+        title: Column(
+          children: [
+            const Icon(Icons.auto_awesome, color: Colors.amber, size: 40),
+            const SizedBox(height: 10),
+            Text(AppLocale.t('fortune_title'), style: const TextStyle(fontWeight: FontWeight.bold)),
+          ],
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.favorite, color: Colors.pink, size: 50),
-            const SizedBox(height: 15),
             Text(
-              loveLuck[Random().nextInt(loveLuck.length)],
-              style: const TextStyle(fontSize: 16),
+              '"${verseData['text']}"', // 말씀 본문
               textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 18, fontStyle: FontStyle.italic, height: 1.5),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              "- ${verseData['source']} -", // 출처
+              style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.bold),
             ),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text("확인", style: TextStyle(fontSize: 16)),
-          )
+            child: Text(AppLocale.t('confirm'), style: const TextStyle(color: Colors.deepPurple)),
+          ),
         ],
       ),
     );

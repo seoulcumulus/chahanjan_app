@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:math';
 import '../utils/app_strings.dart';
+import '../utils/translations.dart'; // [추가] 번역 파일
 import 'package:chahanjan_app/screens/shop_screen.dart'; // [추가] 상점 화면 import
 
 class ProfileScreen extends StatefulWidget {
@@ -56,9 +57,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     'ESFP': '자유로운 영혼의 연예인',
   };
 
-  final List<String> _interestsOptions = [
-    '등산 ⛰️', '골프 ⛳', '헬스 💪', '테니스 🎾', '야구 ⚾', '축구 ⚽', '와인 🍷',
-    '커피 ☕', '위스키 🥃', '맛집 🍕', '독서 📚', '재테크 💰', '명상 🧘', '게임 🎮', '비즈니스 💼'
+  final List<String> _interestKeys = [
+    'hiking', 'golf', 'gym', 'tennis', 'baseball', 'soccer', 'wine',
+    'coffee', 'whiskey', 'foodie', 'reading', 'finance', 'meditation', 'gaming', 'business'
   ];
 
   @override
@@ -264,7 +265,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           height: 450,
           child: Column(
             children: [
-              Text("MBTI 선택", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _holyPurple)),
+              Text(AppLocale.t('mbti_select_title'), style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _holyPurple)),
               const SizedBox(height: 10),
               // 모르면 테스트하러 가기 버튼
               TextButton.icon(
@@ -273,7 +274,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   _startMbtiTest(); // 테스트 시작!
                 },
                 icon: const Icon(Icons.help_outline, color: Colors.blue),
-                label: const Text("내 MBTI를 모르겠나요? (테스트)", style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
+                label: Text(AppLocale.t('mbti_unknown_link'), style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
               ),
               const Divider(),
               Expanded(
@@ -306,34 +307,60 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   // ... (기타 함수들: 언어 변경, 저장 등은 기존과 동일) ...
+  // 언어 선택 다이얼로그 (수정됨: 힌디 추가, 프랑스어 삭제)
   void _showLanguageDialog() {
-    final languages = ['Korean', 'English', 'Japanese', 'Chinese', 'Spanish', 'Hindi'];
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.white,
-        title: Row(children: [Icon(Icons.public, color: _holyPurple), const SizedBox(width: 8), const Text("Language")]),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: languages.map((lang) {
-            return ListTile(
-              title: Text(lang),
-              leading: Radio<String>(
-                value: lang,
-                groupValue: _selectedLanguage,
-                activeColor: _holyGold,
-                onChanged: (val) {
-                  setState(() => _selectedLanguage = val!);
-                  Navigator.pop(ctx);
-                },
-              ),
-              onTap: () {
-                setState(() => _selectedLanguage = lang);
-                Navigator.pop(ctx);
-              },
-            );
-          }).toList(),
-        ),
+      builder: (context) => SimpleDialog(
+        title: const Text('Language / भाषा'), // 제목에도 힌디 느낌 살짝 추가
+        children: [
+          _buildLangOption(context, '한국어', 'ko'),
+          _buildLangOption(context, 'English', 'en'),
+          _buildLangOption(context, '日本語', 'ja'),
+          _buildLangOption(context, '中文', 'zh'),
+          _buildLangOption(context, 'Español', 'es'),
+          
+          // 👇 프랑스어 삭제하고 인도어(Hindi) 추가!
+          _buildLangOption(context, 'हिन्दी (Hindi)', 'hi'), 
+        ],
+      ),
+    );
+  }
+
+  // 언어 선택 옵션 위젯 (추가됨)
+  Widget _buildLangOption(BuildContext context, String label, String code) {
+    return SimpleDialogOption(
+      onPressed: () {
+        // 🚨 기존: AppLocale.current = code; (X) 이거 안 됨
+        
+        // ✅ 수정: 확성기로 변경 알리기! (O)
+        AppLocale.changeLanguage(code); 
+        
+        Navigator.pop(context); // 창 닫기
+        
+        // (setState는 이제 없어도 됩니다. main.dart가 알아서 처리합니다!)
+      },
+      child: ValueListenableBuilder<String>(
+        valueListenable: AppLocale.currentNotifier,
+        builder: (context, currentCode, child) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  label, 
+                  style: TextStyle(
+                    fontSize: 16, 
+                    fontWeight: currentCode == code ? FontWeight.bold : FontWeight.normal,
+                    color: currentCode == code ? _holyPurple : Colors.black87,
+                  ),
+                ),
+                if (currentCode == code) Icon(Icons.check, color: _holyGold),
+              ],
+            ),
+          );
+        }
       ),
     );
   }
@@ -375,7 +402,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Scaffold(
       backgroundColor: _creamyWhite,
       appBar: AppBar(
-        title: Text("내 정보", style: TextStyle(fontWeight: FontWeight.bold, color: _holyGold)),
+        title: Text(AppLocale.t('nav_profile'), style: TextStyle(fontWeight: FontWeight.bold, color: _holyGold)),
         backgroundColor: _holyPurple,
         centerTitle: true,
         actions: [IconButton(icon: Icon(Icons.language, color: _holyGold), onPressed: _showLanguageDialog)],
@@ -388,12 +415,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // 1. 아바타
-                  _buildSectionTitle("나의 아바타"),
+                  _buildSectionTitle(AppLocale.t('my_avatar')),
                   _buildInventory(), // (아래 헬퍼 함수 참고)
                   const SizedBox(height: 30),
 
                   // 2. 닉네임
-                  _buildSectionTitle("닉네임"),
+                  _buildSectionTitle(AppLocale.t('nickname')),
                   Row(children: [Expanded(child: TextField(controller: _nicknameController, decoration: _inputDeco())), const SizedBox(width: 10), _buildDiceButton(_rollDiceNickname)]),
                   const SizedBox(height: 25),
 
@@ -417,7 +444,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               Text(_mbti.isEmpty ? "터치하여 선택 또는 테스트" : _mbti, 
                                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: _mbti.isEmpty ? Colors.grey : _holyPurple)),
                               if (_mbti.isNotEmpty)
-                                Text(_mbtiDescriptions[_mbti] ?? "", style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                                Text(AppLocale.t('${_mbti}_desc'), style: const TextStyle(fontSize: 12, color: Colors.grey)),
                             ],
                           ),
                           Icon(Icons.psychology, color: _holyPurple),
@@ -428,26 +455,62 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(height: 25),
 
                   // ... (성별, 나이, 한줄소개, 관심사 UI는 이전과 동일) ...
-                  _buildSectionTitle("성별 & 나이"),
+                  Text(AppLocale.t('gender_age'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   Row(children: [
-                    Expanded(child: Container(decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey[300]!)), child: Row(children: [Expanded(child: _buildGenderBtn('남성', "Male")), Container(width: 1, height: 20, color: Colors.grey[300]), Expanded(child: _buildGenderBtn('여성', "Female"))]))),
+                    Expanded(child: Container(decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey[300]!)), child: Row(children: [Expanded(child: _buildGenderBtn('남성', AppLocale.t('male'))), Container(width: 1, height: 20, color: Colors.grey[300]), Expanded(child: _buildGenderBtn('여성', AppLocale.t('female')))]))),
                     const SizedBox(width: 20),
-                    Expanded(child: Column(children: [Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text("나이", style: const TextStyle(fontWeight: FontWeight.bold)), Text("${_age.toInt()}", style: TextStyle(fontWeight: FontWeight.bold, color: _holyGold))]), Slider(value: _age, min: 10, max: 80, activeColor: _holyGold, inactiveColor: Colors.grey[200], onChanged: (val) => setState(() => _age = val))]))
+                    Expanded(child: Column(children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween, 
+                        children: [
+                          Text(AppLocale.t('age'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)), 
+                          Text("${_age.toInt()}", style: TextStyle(fontWeight: FontWeight.bold, color: _holyGold))
+                        ]
+                      ), 
+                      Slider(value: _age, min: 10, max: 80, activeColor: _holyGold, inactiveColor: Colors.grey[200], onChanged: (val) => setState(() => _age = val))
+                    ]))
                   ]),
                   const SizedBox(height: 25),
 
-                  _buildSectionTitle("한줄 소개"),
-                  Row(children: [Expanded(child: TextField(controller: _bioController, maxLength: 30, decoration: _inputDeco().copyWith(counterText: ""))), const SizedBox(width: 10), _buildDiceButton(_rollDiceBio)]),
+                  // _buildSectionTitle("한줄 소개"), // 라벨 사용으로 인해 제목 제거
+                  Row(children: [
+                    Expanded(child: TextField(
+                      controller: _bioController, 
+                      maxLength: 30, 
+                      decoration: _inputDeco().copyWith(
+                        counterText: "",
+                        labelText: AppLocale.t('bio'), 
+                        hintText: "...",
+                      )
+                    )), 
+                    const SizedBox(width: 10), 
+                    _buildDiceButton(_rollDiceBio)
+                  ]),
                   const SizedBox(height: 25),
 
-                  _buildSectionTitle("관심사"),
-                  Wrap(spacing: 8, runSpacing: 8, children: _interestsOptions.map((interest) {
-                    final isSelected = _selectedInterests.contains(interest);
-                    return FilterChip(label: Text(interest), selected: isSelected, selectedColor: _holyGold.withOpacity(0.2), checkmarkColor: _holyPurple, backgroundColor: Colors.white, onSelected: (selected) { setState(() { if (selected) { if (_selectedInterests.length < 3) _selectedInterests.add(interest); } else { _selectedInterests.remove(interest); } }); });
+                  _buildSectionTitle(AppLocale.t('interests')),
+                  Wrap(spacing: 8, runSpacing: 8, children: _interestKeys.map((key) {
+                    final isSelected = _selectedInterests.contains(key);
+                    return FilterChip(
+                      label: Text(AppLocale.t(key)), 
+                      selected: isSelected, 
+                      selectedColor: _holyGold.withOpacity(0.2), 
+                      checkmarkColor: _holyPurple, 
+                      backgroundColor: Colors.white, 
+                      onSelected: (selected) { 
+                        setState(() { 
+                          if (selected) { 
+                            if (_selectedInterests.length < 3) _selectedInterests.add(key); 
+                          } else { 
+                            _selectedInterests.remove(key); 
+                          } 
+                        }); 
+                      }
+                    );
                   }).toList()),
                   const SizedBox(height: 40),
 
-                  SizedBox(width: double.infinity, height: 56, child: ElevatedButton(onPressed: _saveProfile, style: ElevatedButton.styleFrom(backgroundColor: _holyGold, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))), child: const Text("프로필 저장", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)))),
+                  SizedBox(width: double.infinity, height: 56, child: ElevatedButton(onPressed: _saveProfile, style: ElevatedButton.styleFrom(backgroundColor: _holyGold, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))), child: Text(AppLocale.t('save_profile'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)))),
                   const SizedBox(height: 20),
                 ],
               ),
@@ -487,7 +550,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text("보유 아바타 창고 (${_myInventory.length})", style: TextStyle(fontWeight: FontWeight.bold, color: _holyPurple)),
+            Text("${AppLocale.t('inventory')} (${_myInventory.length})", style: TextStyle(fontWeight: FontWeight.bold, color: _holyPurple)),
             // Icon(Icons.inventory_2, color: _holyPurple.withOpacity(0.5)), // 기존 아이콘 주석 처리
             IconButton(
               icon: const Icon(Icons.storefront, color: Colors.blue, size: 28),
