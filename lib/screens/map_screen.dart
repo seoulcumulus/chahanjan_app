@@ -5,9 +5,9 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/services.dart' show rootBundle;
 import 'dart:ui' as ui;
 import 'dart:typed_data';
+import 'package:flutter/services.dart'; // rootBundle 사용
 
 // 👇 다른 화면들 임포트
 import 'profile_screen.dart';
@@ -304,89 +304,127 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
-  // 🔍 주변 실유저 찾기 (Firebase 연동 - 가짜 데이터 없음!)
+  // 🔍 주변 실유저 찾기 (아바타 마커 적용 버전)
   Future<void> _searchNearbyUsers({bool isPaid = false}) async {
-    // 1. 내 위치가 없으면 검색 불가
     if (_currentPosition == null) return;
-    
     final myUid = FirebaseAuth.instance.currentUser?.uid;
-    print("📡 주변 실유저 검색 시작... (반경: ${_currentRadius.toInt()}m)");
 
-    // 2. 검색 시작 알림
     if (isPaid && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppLocale.t('search_start'))),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocale.t('search_start'))));
     }
 
     try {
-      // 3. 파이어베이스에서 모든 유저 가져오기
       final QuerySnapshot snapshot = await FirebaseFirestore.instance.collection('users').get();
-
       Set<Marker> realUserMarkers = {};
 
       for (var doc in snapshot.docs) {
         final data = doc.data() as Map<String, dynamic>;
         final String uid = doc.id;
 
-        // 🚨 중요 1: '나'는 지도에 표시하지 않음
-        if (uid == myUid) continue;
+        if (uid == myUid) continue; // 나 제외
+        if (data['location'] == null) continue; // 위치 없으면 제외
 
-        // 🚨 중요 2: 위치 정보(GeoPoint)가 없는 유저는 건너뜀
-        if (data['location'] == null) continue;
-
-        // 4. 거리 계산 (내 위치 vs 상대방 위치)
         final GeoPoint userGeo = data['location'];
-        double distanceInMeters = Geolocator.distanceBetween(
+        double distance = Geolocator.distanceBetween(
           _currentPosition!.latitude,
           _currentPosition!.longitude,
           userGeo.latitude,
           userGeo.longitude,
         );
 
-        // 5. 설정한 반경(_currentRadius) 안에 있는 사람만 마커로 추가
-        if (distanceInMeters <= _currentRadius) {
-          final String nickname = data['nickname'] ?? AppLocale.t('unknown_user');
-          final String avatar = data['avatar_image'] ?? 'rat.png';
+        // 반경 체크
+        if (distance <= _currentRadius) {
+          final String nickname = data['nickname'] ?? '알 수 없음';
+          final String avatar = data['avatar_image'] ?? 'rat.png'; // DB에 저장된 아바타 파일명
+
+          // 🌟 [핵심] 아바타 이미지를 마커 아이콘으로 변환!
+          final BitmapDescriptor customIcon = await _createAvatarMarker(avatar);
 
           realUserMarkers.add(
             Marker(
               markerId: MarkerId(uid),
               position: LatLng(userGeo.latitude, userGeo.longitude),
-              icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet), // 보라색 핀
+              icon: customIcon, // 👈 여기가 핀 대신 얼굴 아이콘으로 바뀜!
               infoWindow: InfoWindow(
                 title: nickname,
-                snippet: "${AppLocale.t('map_snippet')} (${distanceInMeters.toInt()}m) 👋", 
-                onTap: () {
-                  _onUserMarkerTapped(uid, nickname, avatar);
-                },
+                snippet: "${distance.toInt()}m 👋",
+                onTap: () => _onUserMarkerTapped(uid, nickname, avatar),
               ),
             ),
           );
         }
       }
 
-      // 6. 지도 업데이트 (기존 더미는 싹 지워지고 이걸로 덮어씌워짐)
       if (mounted) {
         setState(() {
           _otherMarkers = realUserMarkers;
         });
-        
-        // 검색 결과 메시지
-        if (isPaid) {
-          String msg = realUserMarkers.isEmpty 
-              ? AppLocale.t('no_more_friends') // "친구가 없어요"
-              : "${realUserMarkers.length}명의 친구를 발견했습니다! 🎉";
-          
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
-        }
       }
 
     } catch (e) {
-      print("❌ 유저 검색 중 오류: $e");
+      print("❌ 유저 검색 오류: $e");
     }
   }
 
+  // 🎨 [추가] 아바타 이미지를 지도 마커 아이콘으로 변환하는 함수
+  Future<BitmapDescriptor> _createAvatarMarker(String avatarName) async {
+    try {
+      // 1. 이미지 불러오기
+      final ByteData data = await rootBundle.load('assets/avatars/$avatarName');
+      final ui.Codec codec = await ui.instantiateImageCodec(
+        data.buffer.asUint8List(),
+        targetWidth: 150, // 마커 크기 (적절히 조절 가능)
+      );
+      final ui.FrameInfo fi = await codec.getNextFrame();
+      final ui.Image image = fi.image;
+
+      // 2. 그림 그릴 준비 (캔버스)
+      final ui.PictureRecorder pictureRecorder = ui.PictureRecorder();
+      final Canvas canvas = Canvas(pictureRecorder);
+      final double size = 150.0; // 전체 크기
+      final double shadowWidth = 10.0; // 테두리 두께
+
+      final Paint borderPaint = Paint()
+        ..color = const Color(0xFF24FCFF) // 시그니처 민트색 테두리
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = shadowWidth;
+
+      final double radius = size / 2;
+
+      // 3. 원형으로 자르기 (Clip)
+      final Path clipPath = Path()
+        ..addOval(Rect.fromCircle(center: Offset(radius, radius), radius: radius));
+      
+      canvas.clipPath(clipPath);
+
+      // 4. 이미지 그리기
+      // (이미지 비율에 맞춰 중앙을 크롭해서 그림)
+      paintImage(
+        canvas: canvas,
+        rect: Rect.fromLTWH(0, 0, size, size),
+        image: image,
+        fit: BoxFit.cover, // 꽉 차게
+      );
+
+      // 5. 테두리 그리기
+      canvas.drawCircle(Offset(radius, radius), radius - (shadowWidth / 2), borderPaint);
+
+      // 6. 비트맵으로 변환 완료
+      final ui.Image markerAsImage = await pictureRecorder.endRecording().toImage(
+        size.toInt(),
+        size.toInt(),
+      );
+      final ByteData? byteData = await markerAsImage.toByteData(format: ui.ImageByteFormat.png);
+      final Uint8List uint8List = byteData!.buffer.asUint8List();
+
+      return BitmapDescriptor.fromBytes(uint8List);
+
+    } catch (e) {
+      print("❌ 마커 변환 오류 ($avatarName): $e");
+      // 에러 나면 기본 핀 반환
+      return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet);
+    }
+  }
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
