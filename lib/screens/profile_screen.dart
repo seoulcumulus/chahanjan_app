@@ -31,6 +31,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   List<String> _selectedInterests = [];
   bool _isLoading = true;
 
+  double _mannerTemp = 36.5; // 👈 매너 온도 저장
   String _mbti = ''; 
   final List<String> _mbtiList = [
     'INTJ', 'INTP', 'ENTJ', 'ENTP', 'INFJ', 'INFP', 'ENFJ', 'ENFP',
@@ -87,6 +88,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _age = (data['age'] ?? 25).toDouble();
           _selectedInterests = List<String>.from(data['interests'] ?? []);
           _mbti = data['mbti'] ?? '';
+          _mannerTemp = (data['manner_temp'] ?? 36.5).toDouble(); // 👈 온도 로드
           _isLoading = false;
         });
       } else {
@@ -442,6 +444,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   // 1. 아바타
                   _buildSectionTitle(AppLocale.t('my_avatar')),
                   _buildInventory(), // (아래 헬퍼 함수 참고)
+                  const SizedBox(height: 20),
+
+                  // 🌡️ 1.5. 매너 온도 표시
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 40), // 양옆 여백
+                    padding: const EdgeInsets.all(15),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(color: Colors.grey.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 5))
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        const Text("나의 매너 온도 🌡️", style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 10),
+                        _buildMannerBar(_mannerTemp),
+                      ],
+                    ),
+                  ),
                   const SizedBox(height: 30),
 
                   // 2. 닉네임
@@ -661,6 +684,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               );
             },
+          ),
+        ),
+      ],
+    );
+  }
+
+  // 🌡️ [추가] 매너 온도 막대 위젯 헬퍼 함수
+  Widget _buildMannerBar(double temp) {
+    // 🎨 온도 디자인 로직 (70도 기준)
+    final bool isHighManner = temp >= 70.0;
+    final Color barColor = isHighManner ? const Color(0xFF24FCFF) : const Color(0xFFFFD700);
+    final double barHeight = isHighManner ? 12.0 : 8.0;
+
+    return Row(
+      children: [
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: LinearProgressIndicator(
+              value: temp / 100.0,
+              backgroundColor: Colors.grey[200],
+              valueColor: AlwaysStoppedAnimation<Color>(barColor),
+              minHeight: barHeight, // 두께 적용
+            ),
+          ),
+        ),
+        const SizedBox(width: 15),
+        Text(
+          "$temp℃",
+          style: TextStyle(
+            color: barColor,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
           ),
         ),
       ],

@@ -339,6 +339,9 @@ class _MapScreenState extends State<MapScreen> {
           final String avatar = data['avatar_image'] ?? 'rat.png'; // DB에 저장된 아바타 파일명
           final double temp = (data['manner_temp'] ?? 36.5).toDouble(); // 매너 온도 가져오기
 
+          // 🔍 [디버그] 온도 확인
+          print("👤 $nickname - 온도: $temp°C ${temp >= 85 ? '👑 (왕관)' : temp >= 70 ? '😇 (헤일로)' : ''}");
+
           // 🌟 [핵심] 아바타 이미지를 마커 아이콘으로 변환! (온도 포함)
           final BitmapDescriptor customIcon = await _createAvatarMarker(avatar, temp);
 
