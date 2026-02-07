@@ -47,6 +47,7 @@ class _MapScreenState extends State<MapScreen> {
   double _currentRadius = 5000.0; // 현재 반경 (기본값 5000m)
   String _currentAvatar = 'rat.png'; // 현재 아바타 (변화 감지용)
   BitmapDescriptor? _myMarkerIcon; // 변환된 마커 아이콘
+  BitmapDescriptor? _myIcon; // 🌟 [추가] 내 아바타 마커 아이콘 저장용
   bool _isFirstLoad = true; // [추가] 처음 실행 여부 확인용
 
   final Color _signatureColor = const Color(0xFF24FCFF);
@@ -55,6 +56,32 @@ class _MapScreenState extends State<MapScreen> {
   void initState() {
     super.initState();
     _getCurrentLocation(); // 시작하자마자 위치 찾기
+    _loadMyAvatarMarker(); // 👈 [추가] 내 아바타 불러오기 시작!
+  }
+
+  // 🎨 [추가] 파이어베이스에서 내 정보 가져와서 마커 만들기
+  Future<void> _loadMyAvatarMarker() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      final data = doc.data();
+
+      if (data != null) {
+        final String avatar = data['avatar_image'] ?? 'rat.png'; // 내 아바타
+        final double temp = (data['manner_temp'] ?? 36.5).toDouble(); // 내 매너온도
+
+        // 아까 만든 그 함수 재사용! (똑같은 스타일 적용)
+        final icon = await _createAvatarMarker(avatar, temp);
+
+        setState(() {
+          _myIcon = icon; // 변수에 저장
+        });
+      }
+    } catch (e) {
+      print("내 아바타 마커 로드 실패: $e");
+    }
   }
 
   // 📍 (핵심) 이미지를 지도 마커로 변환하는 함수 (천사링/날개 이펙트 추가!)
@@ -506,6 +533,22 @@ class _MapScreenState extends State<MapScreen> {
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
 
+    // 🌟 [핵심] 내 마커 생성 (위치가 있고, 아이콘이 로드되었을 때만)
+    Set<Marker> myMarkerSet = {};
+    
+    if (_currentPosition != null && _myIcon != null) {
+      myMarkerSet.add(
+        Marker(
+          markerId: const MarkerId('me'), // 내 ID는 고정
+          position: LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
+          icon: _myIcon!, // 👈 아까 만든 내 아바타 아이콘 사용!
+          zIndex: 2, // 다른 유저보다 위에 보이게 (중요)
+          infoWindow: const InfoWindow(title: "나 (Me)"),
+          anchor: const Offset(0.5, 0.5), // 이미지 중앙이 좌표에 오도록
+        ),
+      );
+    }
+
     return Scaffold(
       body: Stack(
         children: [
@@ -521,8 +564,9 @@ class _MapScreenState extends State<MapScreen> {
                   final double mannerTemp = (data['manner_temp'] ?? 36.5).toDouble(); // 매너 온도 가져오기
                   
                   // 아바타가 바뀌었으면 마커 아이콘 새로 만들기
-                  if (avatar != _currentAvatar || _myMarkerIcon == null) {
-                    _updateMarkerIcon(avatar, mannerTemp);
+                  if (avatar != _currentAvatar) {
+                    _currentAvatar = avatar;
+                    _loadMyAvatarMarker(); // 👈 [수정] 새 함수 사용
                   }
                 }
                 return const SizedBox.shrink(); // 화면에는 아무것도 안 그림 (감시만 함)
@@ -544,9 +588,10 @@ class _MapScreenState extends State<MapScreen> {
               target: LatLng(37.5665, 126.9780), // 서울 기본값
               zoom: 16,
             ),
-            markers: _myMarker.union(_otherMarkers), // 👈 내 마커 + 남의 마커 합쳐서 표시
+            // 🌟 [핵심] 주변 유저 마커 + 내 마커 합치기 (.union)
+            markers: _otherMarkers.union(myMarkerSet),
             circles: _circles, // 3. 위에서 만든 원 세트 연결
-            myLocationEnabled: true, // 파란 점 표시 (보조용)
+            myLocationEnabled: false, // ❌ 기본 파란 점 끄기 (이제 필요 없음)
             myLocationButtonEnabled: false, // 기본 버튼 끄기 (우리가 만든 거 쓸 거임)
             zoomControlsEnabled: false,
           ),
