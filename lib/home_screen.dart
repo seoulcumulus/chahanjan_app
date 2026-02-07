@@ -4,6 +4,7 @@ import 'package:chahanjan_app/screens/map_screen.dart';
 import 'package:chahanjan_app/screens/matching_screen.dart'; // [추가]
 import 'package:chahanjan_app/screens/profile_screen.dart';
 import 'package:chahanjan_app/utils/translations.dart'; // [추가] 번역 파일
+import 'package:chahanjan_app/services/notification_service.dart'; // import 추가
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -15,6 +16,13 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   // 현재 선택된 탭 번호 (0: 홈, 1: 지도, 2: 채팅)
   int _selectedIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    // 👇 [추가 2] 감시자 실행! (로그인 된 상태라면)
+    NotificationService().startListening();
+  }
 
   // 탭을 눌렀을 때 실행될 함수
   void _onItemTapped(int index) {

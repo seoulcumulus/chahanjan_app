@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart'; // 👈 이거 추가!
+import 'package:chahanjan_app/services/notification_service.dart'; // 👈 import 추가
 import 'package:chahanjan_app/screens/login_screen.dart';
 import 'package:chahanjan_app/screens/signup_screen.dart';
 import 'package:chahanjan_app/screens/map_screen.dart';
@@ -29,6 +30,9 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  // 👇 [추가 1] 알림 설정 초기화
+  await NotificationService().init();
 
   // Kakao Native App Key & JS Key
   KakaoSdk.init(

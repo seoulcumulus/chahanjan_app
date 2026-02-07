@@ -1,49 +1,97 @@
-import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class NotificationService {
-  final FirebaseMessaging _fcm = FirebaseMessaging.instance;
+  static final NotificationService _instance = NotificationService._internal();
+  factory NotificationService() => _instance;
+  NotificationService._internal();
 
-  // 🔔 초기화 및 권한 요청
-  Future<void> initialize() async {
-    // 1. 알림 권한 요청 (iOS 필수)
-    NotificationSettings settings = await _fcm.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
+  final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin =
+      FlutterLocalNotificationsPlugin();
 
-    if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-      print('🔔 알림 권한 허용됨');
-      // 2. 토큰 가져오기 및 저장
-      String? token = await _fcm.getToken();
-      if (token != null) {
-        _saveTokenToDB(token);
-      }
+  // 마지막으로 알림 보낸 시간 (중복 방지용)
+  DateTime _lastNotifiedTime = DateTime.now();
 
-      // 3. 토큰 갱신 감지
-      _fcm.onTokenRefresh.listen(_saveTokenToDB);
-    } else {
-      print('🔔 알림 권한 거부됨');
-    }
+  // 1. 초기화 (앱 켜질 때 실행)
+  Future<void> init() async {
+    const AndroidInitializationSettings initializationSettingsAndroid =
+        AndroidInitializationSettings('@mipmap/ic_launcher'); // 앱 아이콘 사용
 
-    // 4. 앱이 켜져있을 때 알림 처리 (선택사항: 스낵바 띄우기 등)
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      print('🔔 포그라운드 알림 도착: ${message.notification?.title}');
-      // 여기서 Get.snackbar 등을 띄울 수 있음
-    });
+    const InitializationSettings initializationSettings =
+        InitializationSettings(android: initializationSettingsAndroid);
+
+    await _flutterLocalNotificationsPlugin.initialize(initializationSettings);
   }
 
-  // 💾 내 DB에 FCM 토큰 저장 (그래야 서버가 나한테 알림을 보냄)
-  Future<void> _saveTokenToDB(String token) async {
+  // 2. 알림 띄우기 함수
+  Future<void> showNotification(String title, String body) async {
+    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+        AndroidNotificationDetails(
+      'chahanjan_channel', // 채널 ID
+      '채팅 알림', // 채널 이름
+      importance: Importance.max,
+      priority: Priority.high,
+      showWhen: true,
+    );
+    const NotificationDetails platformChannelSpecifics =
+        NotificationDetails(android: androidPlatformChannelSpecifics);
+
+    await _flutterLocalNotificationsPlugin.show(
+      DateTime.now().millisecond, // 고유 ID
+      title,
+      body,
+      platformChannelSpecifics,
+    );
+  }
+
+  // 📡 3. [핵심] 파이어베이스 감시자 (로그인 직후 실행)
+  void startListening() {
     final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .update({'fcmToken': token});
-      print("🔔 FCM 토큰 저장 완료");
-    }
+    if (user == null) return;
+
+    print("👂 알림 리스너가 켜졌습니다!");
+
+    // 내 채팅방의 변화를 실시간 감시
+    FirebaseFirestore.instance
+        .collection('chat_rooms')
+        .where('participants', arrayContains: user.uid)
+        .snapshots()
+        .listen((snapshot) {
+      
+      for (var change in snapshot.docChanges) {
+        // 데이터 가져오기
+        final data = change.doc.data() as Map<String, dynamic>;
+        final Timestamp? updatedAt = data['updatedAt'];
+        
+        // 시간 체크 (앱 켜기 전의 옛날 메시지는 알림 X)
+        if (updatedAt == null) continue;
+        if (updatedAt.toDate().isBefore(_lastNotifiedTime)) continue;
+
+        // 🟢 1. 새 메시지 도착 (Modified)
+        if (change.type == DocumentChangeType.modified) {
+          final lastMsg = data['lastMessage'] ?? '';
+          final senderId = data['lastMessageSenderId'] ?? '';
+
+          // 내가 보낸 게 아닐 때만 알림
+          if (senderId != user.uid && lastMsg.isNotEmpty) {
+            showNotification("새 메시지 💌", lastMsg);
+            _lastNotifiedTime = DateTime.now(); // 시간 갱신
+          }
+        }
+
+        // 🟡 2. 새 채팅 요청 도착 (Added)
+        if (change.type == DocumentChangeType.added) {
+          final status = data['status'] ?? 'pending';
+          final initiatorId = data['initiatorId'] ?? '';
+
+          // 내가 요청한 게 아니고, 상태가 대기중일 때
+          if (initiatorId != user.uid && status == 'pending') {
+            showNotification("새로운 대화 요청! 👋", "누군가 찻잎을 건넸습니다. 확인해보세요!");
+            _lastNotifiedTime = DateTime.now(); // 시간 갱신
+          }
+        }
+      }
+    });
   }
 }
