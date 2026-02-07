@@ -30,15 +30,22 @@ class _ShopScreenState extends State<ShopScreen> with SingleTickerProviderStateM
     // ...
   ];
 
-  // 아바타 목록
+  // 12지신 + 기본 아바타 목록 (파일명과 정확히 일치해야 함!)
   final List<Map<String, dynamic>> _avatarItems = [
-    {'file': 'rat.png', 'price': 50},
-    {'file': 'ox.png', 'price': 50},
-    {'file': 'tiger.png', 'price': 50},
-    {'file': 'rabbit.png', 'price': 50},
-    {'file': 'dragon.png', 'price': 100},
-    {'file': 'snake.png', 'price': 50},
-    // ... 나머지 12지신
+    {'file': 'avatar_1.png', 'price': 50}, // 기본 소녀
+    {'file': 'rat.png', 'price': 50},      // 쥐
+    {'file': 'ox.png', 'price': 50},       // 소 (기존에 샀던 거!)
+    {'file': 'tiger.png', 'price': 50},    // 호랑이
+    {'file': 'rabbit.png', 'price': 50},   // 토끼
+    {'file': 'dragon.png', 'price': 100},  // 용 (비쌈)
+    {'file': 'snake.png', 'price': 50},    // 뱀 (골프)
+    {'file': 'snake1.png', 'price': 50},   // 뱀 (책)
+    {'file': 'horse.png', 'price': 50},    // 말
+    {'file': 'sheep.png', 'price': 50},    // 양
+    {'file': 'monkey.png', 'price': 50},   // 원숭이
+    {'file': 'rooster.png', 'price': 50},  // 닭
+    {'file': 'dog.png', 'price': 50},      // 개
+    {'file': 'pig.png', 'price': 50},      // 돼지
   ];
 
   @override
