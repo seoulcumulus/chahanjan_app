@@ -13,6 +13,7 @@ import 'package:flutter/services.dart'; // rootBundle 사용
 import 'profile_screen.dart';
 import 'shop_screen.dart';
 import 'chat_list_screen.dart'; // 채팅 목록 화면 (만드셨다면)
+import '../widgets/profile_card.dart'; // 👈 프로필 카드 위젯
 import 'chat_screen.dart'; // [추가] 채팅 화면
 import '../utils/app_strings.dart';
 import '../utils/translations.dart'; // [추가] 번역 파일
@@ -346,11 +347,49 @@ class _MapScreenState extends State<MapScreen> {
               markerId: MarkerId(uid),
               position: LatLng(userGeo.latitude, userGeo.longitude),
               icon: customIcon, // 👈 여기가 핀 대신 얼굴 아이콘으로 바뀜!
-              infoWindow: InfoWindow(
-                title: nickname,
-                snippet: "${distance.toInt()}m 👋",
-                onTap: () => _onUserMarkerTapped(uid, nickname, avatar),
-              ),
+              // ✅ [핵심] 마커를 누르면 카드 팝업 띄우기!
+              onTap: () {
+                showDialog(
+                  context: context,
+                  builder: (context) {
+                    return Dialog(
+                      backgroundColor: Colors.transparent, // 배경 투명하게
+                      elevation: 0,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // 1. 프로필 카드 (재사용!)
+                          ProfileCard(data: data),
+                          
+                          const SizedBox(height: 15),
+
+                          // 2. 채팅 버튼 (카드 아래에 배치)
+                          ElevatedButton.icon(
+                            onPressed: () {
+                              Navigator.pop(context); // 팝업 닫고
+                              _onUserMarkerTapped(uid, nickname, avatar); // 채팅 시도 (찻잎 소모)
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF24FCFF), // 시그니처 컬러
+                              foregroundColor: Colors.black,
+                              padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                            ),
+                            icon: const Icon(Icons.chat_bubble),
+                            label: const Text("대화 요청하기 (1🍵)", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                          ),
+                          
+                          // 3. 닫기 버튼 (X)
+                          IconButton(
+                            icon: const Icon(Icons.close, color: Colors.white, size: 30),
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                );
+              },
             ),
           );
         }

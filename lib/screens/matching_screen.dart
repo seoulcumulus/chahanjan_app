@@ -6,6 +6,7 @@ import '../utils/translations.dart';
 import '../services/user_service.dart'; // Ensure this import exists for deducting tea leaves
 import 'chat_screen.dart'; // Ensure this import exists for navigation
 import '../widgets/manner_avatar.dart'; // 👈 매너 아바타 위젯
+import '../widgets/profile_card.dart'; // 👈 프로필 카드 위젯
 
 class MatchingScreen extends StatefulWidget {
   const MatchingScreen({super.key});
@@ -216,131 +217,10 @@ class _MatchingScreenState extends State<MatchingScreen> {
     );
   }
 
-  // 🎨 카드 디자인 (상세 프로필 적용)
+  // 🎨 카드 디자인 (ProfileCard 위젯 재사용!)
   Widget _buildCard(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
-    
-    // 데이터 가져오기 (없으면 기본값)
-    final String name = data['nickname'] ?? '알 수 없음';
-    final String avatarFile = data['avatar_image'] ?? 'rat.png';
-    final String mbti = data['mbti'] ?? '???';
-    final String gender = data['gender'] ?? 'unknown'; // 'male', 'female'
-    final String bio = data['bio'] ?? AppLocale.t('map_snippet'); // 한줄 소개 (없으면 기본 문구)
-    final List<dynamic> interests = data['interests'] ?? ['차 마시기 🍵', '대화하기 🗣️']; // 관심사 태그
-    final double temp = (data['manner_temp'] ?? 36.5).toDouble(); // 👈 매너 온도 가져오기
-
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.15),
-            blurRadius: 15,
-            spreadRadius: 2,
-            offset: const Offset(0, 5),
-          )
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // 1. 배경 (MannerAvatar로 교체)
-            Center(
-              child: MannerAvatar(
-                imagePath: avatarFile,
-                temp: temp,
-                size: 250, // 카드니까 크게!
-              ),
-            ),
-
-            // 2. 그라데이션 (글씨 잘 보이게)
-            Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.transparent,
-                    Colors.transparent,
-                    Colors.black54, // 중간부터 어두워짐
-                    Colors.black87,
-                  ],
-                  stops: [0.0, 0.5, 0.7, 1.0],
-                ),
-              ),
-            ),
-
-            // 3. 정보 텍스트 (하단 배치)
-            Positioned(
-              bottom: 20,
-              left: 20,
-              right: 20,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // [이름 + 성별 + MBTI]
-                  Row(
-                    children: [
-                      Text(
-                        name,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      _getGenderIcon(gender), // 성별 아이콘
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF24FCFF), // 시그니처 민트색
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          mbti,
-                          style: const TextStyle(
-                            color: Colors.black,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-
-                  // [관심사 태그] (가로로 나열)
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: interests.map((tag) => _buildChip(tag.toString())).toList(),
-                  ),
-                  const SizedBox(height: 10),
-
-                  // [한줄 소개]
-                  Text(
-                    bio,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 15,
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+    return ProfileCard(data: data);
   }
 
   // 🚻 성별 아이콘 변환 함수
