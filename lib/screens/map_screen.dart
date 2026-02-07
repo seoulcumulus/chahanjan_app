@@ -304,61 +304,87 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
-  // 🔍 주변 유저 찾기 (일단 가짜 데이터로 테스트)
-  void _searchNearbyUsers({bool isPaid = false}) {
+  // 🔍 주변 실유저 찾기 (Firebase 연동 - 가짜 데이터 없음!)
+  Future<void> _searchNearbyUsers({bool isPaid = false}) async {
+    // 1. 내 위치가 없으면 검색 불가
     if (_currentPosition == null) return;
+    
+    final myUid = FirebaseAuth.instance.currentUser?.uid;
+    print("📡 주변 실유저 검색 시작... (반경: ${_currentRadius.toInt()}m)");
 
-    print("📡 주변 유저 검색 시작...");
-
-    if (isPaid) {
-        ScaffoldMessenger.of(context).showSnackBar(
-           const SnackBar(content: Text("찻잎 1장을 쓰고 주변을 둘러봅니다. 👀")),
-        );
-    }
-
-    // 가짜 유저 데이터 생성 (내 위치 근처)
-    // 실제로는 여기서 Firebase 데이터를 가져옵니다.
-    List<Map<String, dynamic>> dummyUsers = [
-      {
-        "id": "user_1",
-        "nickname": "지나가던 토끼",
-        "lat": _currentPosition!.latitude + 0.002, // 약간 위
-        "lng": _currentPosition!.longitude + 0.002, // 약간 오른쪽
-        "avatar": "rabbit.png"
-      },
-      {
-        "id": "user_2",
-        "nickname": "배고픈 호랑이",
-        "lat": _currentPosition!.latitude - 0.002, // 약간 아래
-        "lng": _currentPosition!.longitude - 0.002, // 약간 왼쪽
-        "avatar": "tiger.png"
-      },
-    ];
-
-    Set<Marker> tempMarkers = {};
-
-    for (var user in dummyUsers) {
-      tempMarkers.add(
-        Marker(
-          markerId: MarkerId(user['id']),
-          position: LatLng(user['lat'], user['lng']),
-          // 3단계에서 채팅 연결할 때 이 정보가 쓰입니다 👇
-          infoWindow: InfoWindow(
-            title: user['nickname'],
-            snippet: "${AppLocale.t('map_snippet')} 👋", 
-            onTap: () {
-               // 찻잎 소모 로직 적용
-               _onUserMarkerTapped(user['id'], user['nickname'], user['avatar']);
-            }
-          ),
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet), // 일단 보라색 핀
-        ),
+    // 2. 검색 시작 알림
+    if (isPaid && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppLocale.t('search_start'))),
       );
     }
 
-    setState(() {
-      _otherMarkers = tempMarkers; // 🔵 남의 마커 그릇에만 담기!
-    });
+    try {
+      // 3. 파이어베이스에서 모든 유저 가져오기
+      final QuerySnapshot snapshot = await FirebaseFirestore.instance.collection('users').get();
+
+      Set<Marker> realUserMarkers = {};
+
+      for (var doc in snapshot.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+        final String uid = doc.id;
+
+        // 🚨 중요 1: '나'는 지도에 표시하지 않음
+        if (uid == myUid) continue;
+
+        // 🚨 중요 2: 위치 정보(GeoPoint)가 없는 유저는 건너뜀
+        if (data['location'] == null) continue;
+
+        // 4. 거리 계산 (내 위치 vs 상대방 위치)
+        final GeoPoint userGeo = data['location'];
+        double distanceInMeters = Geolocator.distanceBetween(
+          _currentPosition!.latitude,
+          _currentPosition!.longitude,
+          userGeo.latitude,
+          userGeo.longitude,
+        );
+
+        // 5. 설정한 반경(_currentRadius) 안에 있는 사람만 마커로 추가
+        if (distanceInMeters <= _currentRadius) {
+          final String nickname = data['nickname'] ?? AppLocale.t('unknown_user');
+          final String avatar = data['avatar_image'] ?? 'rat.png';
+
+          realUserMarkers.add(
+            Marker(
+              markerId: MarkerId(uid),
+              position: LatLng(userGeo.latitude, userGeo.longitude),
+              icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet), // 보라색 핀
+              infoWindow: InfoWindow(
+                title: nickname,
+                snippet: "${AppLocale.t('map_snippet')} (${distanceInMeters.toInt()}m) 👋", 
+                onTap: () {
+                  _onUserMarkerTapped(uid, nickname, avatar);
+                },
+              ),
+            ),
+          );
+        }
+      }
+
+      // 6. 지도 업데이트 (기존 더미는 싹 지워지고 이걸로 덮어씌워짐)
+      if (mounted) {
+        setState(() {
+          _otherMarkers = realUserMarkers;
+        });
+        
+        // 검색 결과 메시지
+        if (isPaid) {
+          String msg = realUserMarkers.isEmpty 
+              ? AppLocale.t('no_more_friends') // "친구가 없어요"
+              : "${realUserMarkers.length}명의 친구를 발견했습니다! 🎉";
+          
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+        }
+      }
+
+    } catch (e) {
+      print("❌ 유저 검색 중 오류: $e");
+    }
   }
 
   @override
