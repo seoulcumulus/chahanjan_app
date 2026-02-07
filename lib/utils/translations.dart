@@ -68,6 +68,19 @@ class AppLocale {
       'wine': '와인 🍷', 'coffee': '커피 ☕', 'whiskey': '위스키 🥃',
       'foodie': '맛집 🍕', 'reading': '독서 📚', 'finance': '재테크 💰',
       'meditation': '명상 🧘', 'gaming': '게임 🎮', 'business': '비즈니스 💼',
+
+      // MBTI Test
+      'mbti_test_title': '성향 테스트 🧠',
+      'btn_cancel': '취소',
+      'btn_confirm': '결과 확인',
+      'q1_text': 'Q1. 에너지를 얻는 방향은?',
+      'q1_opt1': '혼자가 편해 (I)', 'q1_opt2': '사람들과 함께 (E)',
+      'q2_text': 'Q2. 인식하는 방식은?',
+      'q2_opt1': '현실과 경험 (S)', 'q2_opt2': '직관과 상상 (N)',
+      'q3_text': 'Q3. 판단의 근거는?',
+      'q3_opt1': '사실과 논리 (T)', 'q3_opt2': '사람과 관계 (F)',
+      'q4_text': 'Q4. 생활 양식은?',
+      'q4_opt1': '계획적으로 (J)', 'q4_opt2': '유동적으로 (P)',
     },
 
     // 2. 🇺🇸 영어 (English)
@@ -120,6 +133,19 @@ class AppLocale {
       'wine': 'Wine 🍷', 'coffee': 'Coffee ☕', 'whiskey': 'Whiskey 🥃',
       'foodie': 'Foodie 🍕', 'reading': 'Reading 📚', 'finance': 'Finance 💰',
       'meditation': 'Meditation 🧘', 'gaming': 'Gaming 🎮', 'business': 'Business 💼',
+
+      // MBTI Test
+      'mbti_test_title': 'Personality Test 🧠',
+      'btn_cancel': 'Cancel',
+      'btn_confirm': 'Check Result',
+      'q1_text': 'Q1. Energy Source?',
+      'q1_opt1': 'Alone (I)', 'q1_opt2': 'With People (E)',
+      'q2_text': 'Q2. Perception?',
+      'q2_opt1': 'Realistic (S)', 'q2_opt2': 'Imaginative (N)',
+      'q3_text': 'Q3. Judgment?',
+      'q3_opt1': 'Logic (T)', 'q3_opt2': 'Empathy (F)',
+      'q4_text': 'Q4. Lifestyle?',
+      'q4_opt1': 'Planned (J)', 'q4_opt2': 'Flexible (P)',
     },
 
     // 3. 🇯🇵 일본어 (Japanese)
@@ -172,6 +198,19 @@ class AppLocale {
       'wine': 'ワイン 🍷', 'coffee': 'コーヒー ☕', 'whiskey': 'ウイスキー 🥃',
       'foodie': 'グルメ 🍕', 'reading': '読書 📚', 'finance': '財テク 💰',
       'meditation': '瞑想 🧘', 'gaming': 'ゲーム 🎮', 'business': 'ビジネス 💼',
+
+      // MBTI Test
+      'mbti_test_title': '性格テスト 🧠',
+      'btn_cancel': 'キャンセル',
+      'btn_confirm': '結果確認',
+      'q1_text': 'Q1. エネルギーの源は？',
+      'q1_opt1': '一人が楽 (I)', 'q1_opt2': '人と一緒 (E)',
+      'q2_text': 'Q2. 物の見方は？',
+      'q2_opt1': '現実と経験 (S)', 'q2_opt2': '直感と想像 (N)',
+      'q3_text': 'Q3. 判断の基準は？',
+      'q3_opt1': '事実と論理 (T)', 'q3_opt2': '人と関係 (F)',
+      'q4_text': 'Q4. 生活様式は？',
+      'q4_opt1': '計画的 (J)', 'q4_opt2': '柔軟 (P)',
     },
 
     // 4. 🇨🇳 중국어 (Chinese)
@@ -227,6 +266,19 @@ class AppLocale {
       'wine': '红酒 🍷', 'coffee': '咖啡 ☕', 'whiskey': '威士忌 🥃',
       'foodie': '美食 🍕', 'reading': '阅读 📚', 'finance': '理财 💰',
       'meditation': '冥想 🧘', 'gaming': '游戏 🎮', 'business': '商务 💼',
+
+      // MBTI Test
+      'mbti_test_title': '性格测试 🧠',
+      'btn_cancel': '取消',
+      'btn_confirm': '确认结果',
+      'q1_text': 'Q1. 能量来源？',
+      'q1_opt1': '独处 (I)', 'q1_opt2': '社交 (E)',
+      'q2_text': 'Q2. 认知方式？',
+      'q2_opt1': '现实 (S)', 'q2_opt2': '直觉 (N)',
+      'q3_text': 'Q3. 判断依据？',
+      'q3_opt1': '逻辑 (T)', 'q3_opt2': '情感 (F)',
+      'q4_text': 'Q4. 生活方式？',
+      'q4_opt1': '计划 (J)', 'q4_opt2': '灵活 (P)',
     },
 
     // 5. 🇪🇸 스페인어 (Spanish)
@@ -278,6 +330,19 @@ class AppLocale {
       'wine': 'Vino 🍷', 'coffee': 'Café ☕', 'whiskey': 'Whisky 🥃',
       'foodie': 'Comida 🍕', 'reading': 'Lectura 📚', 'finance': 'Finanzas 💰',
       'meditation': 'Meditación 🧘', 'gaming': 'Juegos 🎮', 'business': 'Negocios 💼',
+
+      // MBTI Test
+      'mbti_test_title': 'Test de Personalidad 🧠',
+      'btn_cancel': 'Cancelar',
+      'btn_confirm': 'Ver Resultado',
+      'q1_text': 'Q1. ¿Fuente de energía?',
+      'q1_opt1': 'Solo (I)', 'q1_opt2': 'Con gente (E)',
+      'q2_text': 'Q2. ¿Cómo percibes?',
+      'q2_opt1': 'Realista (S)', 'q2_opt2': 'Imaginativo (N)',
+      'q3_text': 'Q3. ¿Base del juicio?',
+      'q3_opt1': 'Lógica (T)', 'q3_opt2': 'Empatía (F)',
+      'q4_text': 'Q4. ¿Estilo de vida?',
+      'q4_opt1': 'Planificado (J)', 'q4_opt2': 'Flexible (P)',
     },
 
     // 6. 🇮🇳 힌디 (Hindi)
@@ -329,6 +394,19 @@ class AppLocale {
       'wine': 'वाइन 🍷', 'coffee': 'कॉफी ☕', 'whiskey': 'व्हिस्की 🥃',
       'foodie': 'खाने के शौकीन 🍕', 'reading': 'पढ़ना 📚', 'finance': 'वित्त 💰',
       'meditation': 'ध्यान 🧘', 'gaming': 'गेमिंग 🎮', 'business': 'व्यापार 💼',
+
+      // MBTI Test
+      'mbti_test_title': 'व्यक्तित्व परीक्षण 🧠',
+      'btn_cancel': 'रद्द करें',
+      'btn_confirm': 'परिणाम देखें',
+      'q1_text': 'Q1. ऊर्जा का स्रोत?',
+      'q1_opt1': 'अकेले (I)', 'q1_opt2': 'लोगों के साथ (E)',
+      'q2_text': 'Q2. देखने का नजरिया?',
+      'q2_opt1': 'यथार्थवादी (S)', 'q2_opt2': 'काल्पनिक (N)',
+      'q3_text': 'Q3. निर्णय का आधार?',
+      'q3_opt1': 'तर्क (T)', 'q3_opt2': 'सहानुभूति (F)',
+      'q4_text': 'Q4. जीवन शैली?',
+      'q4_opt1': 'योजनाबद्ध (J)', 'q4_opt2': 'लचीला (P)',
     },
   };
 

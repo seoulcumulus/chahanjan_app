@@ -120,23 +120,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
     setState(() => _bioController.text = randomBio);
   }
 
-  // 🕵️♂️ MBTI 테스트 시작하기
-  void _startMbtiTest() {
-    String resIE = '', resSN = '', resTF = '', resJP = '';
+  // MBTI 약식 테스트 다이얼로그 (수정됨: 6개 국어 지원)
+  void _showMbtiTestDialog() {
+    String _currentEorI = '', _currentNorS = '', _currentForT = '', _currentPorJ = '';
     
     showDialog(
       context: context,
-      builder: (ctx) {
-        // StatefulBuilder를 써야 다이얼로그 안에서 상태가 바뀝니다!
+      builder: (context) {
         return StatefulBuilder(
-          builder: (context, setDialogState) {
+          builder: (context, setState) {
             return AlertDialog(
-              backgroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
               title: Row(
                 children: [
-                  Icon(Icons.psychology, color: _holyPurple),
+                  const Icon(Icons.psychology, color: Colors.purple),
                   const SizedBox(width: 10),
-                  const Text("성향 테스트", style: TextStyle(fontWeight: FontWeight.bold)),
+                  Text(AppLocale.t('mbti_test_title'), style: const TextStyle(fontWeight: FontWeight.bold)),
                 ],
               ),
               content: SingleChildScrollView(
@@ -144,46 +143,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text("Q1. 에너지를 얻는 방향은?", style: TextStyle(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 5),
+                    // Q1
+                    Text(AppLocale.t('q1_text'), style: const TextStyle(fontWeight: FontWeight.bold)),
                     Row(
                       children: [
-                        _buildTestBtn("혼자가 편해 (I)", resIE == 'I', () => setDialogState(() => resIE = 'I')),
-                        const SizedBox(width: 5),
-                        _buildTestBtn("사람들과 함께 (E)", resIE == 'E', () => setDialogState(() => resIE = 'E')),
+                        Expanded(child: _buildOptionButton("I", AppLocale.t('q1_opt1'), _currentEorI, (val) => setState(() => _currentEorI = val))),
+                        Expanded(child: _buildOptionButton("E", AppLocale.t('q1_opt2'), _currentEorI, (val) => setState(() => _currentEorI = val))),
                       ],
                     ),
-                    const Divider(height: 30),
-
-                    const Text("Q2. 인식하는 방식은?", style: TextStyle(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 5),
+                    const SizedBox(height: 15),
+                    // Q2
+                    Text(AppLocale.t('q2_text'), style: const TextStyle(fontWeight: FontWeight.bold)),
                     Row(
                       children: [
-                        _buildTestBtn("현실과 경험 (S)", resSN == 'S', () => setDialogState(() => resSN = 'S')),
-                        const SizedBox(width: 5),
-                        _buildTestBtn("직관과 상상 (N)", resSN == 'N', () => setDialogState(() => resSN = 'N')),
+                        Expanded(child: _buildOptionButton("S", AppLocale.t('q2_opt1'), _currentNorS, (val) => setState(() => _currentNorS = val))),
+                        Expanded(child: _buildOptionButton("N", AppLocale.t('q2_opt2'), _currentNorS, (val) => setState(() => _currentNorS = val))),
                       ],
                     ),
-                    const Divider(height: 30),
-
-                    const Text("Q3. 판단의 근거는?", style: TextStyle(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 5),
+                    const SizedBox(height: 15),
+                    // Q3
+                    Text(AppLocale.t('q3_text'), style: const TextStyle(fontWeight: FontWeight.bold)),
                     Row(
                       children: [
-                        _buildTestBtn("사실과 논리 (T)", resTF == 'T', () => setDialogState(() => resTF = 'T')),
-                        const SizedBox(width: 5),
-                        _buildTestBtn("사람과 관계 (F)", resTF == 'F', () => setDialogState(() => resTF = 'F')),
+                        Expanded(child: _buildOptionButton("T", AppLocale.t('q3_opt1'), _currentForT, (val) => setState(() => _currentForT = val))),
+                        Expanded(child: _buildOptionButton("F", AppLocale.t('q3_opt2'), _currentForT, (val) => setState(() => _currentForT = val))),
                       ],
                     ),
-                    const Divider(height: 30),
-
-                    const Text("Q4. 생활 양식은?", style: TextStyle(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 5),
+                    const SizedBox(height: 15),
+                    // Q4
+                    Text(AppLocale.t('q4_text'), style: const TextStyle(fontWeight: FontWeight.bold)),
                     Row(
                       children: [
-                        _buildTestBtn("계획적으로 (J)", resJP == 'J', () => setDialogState(() => resJP = 'J')),
-                        const SizedBox(width: 5),
-                        _buildTestBtn("유동적으로 (P)", resJP == 'P', () => setDialogState(() => resJP = 'P')),
+                        Expanded(child: _buildOptionButton("J", AppLocale.t('q4_opt1'), _currentPorJ, (val) => setState(() => _currentPorJ = val))),
+                        Expanded(child: _buildOptionButton("P", AppLocale.t('q4_opt2'), _currentPorJ, (val) => setState(() => _currentPorJ = val))),
                       ],
                     ),
                   ],
@@ -191,19 +183,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text("취소", style: TextStyle(color: Colors.grey)),
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(AppLocale.t('btn_cancel'), style: const TextStyle(color: Colors.grey)),
                 ),
                 ElevatedButton(
-                  onPressed: (resIE.isEmpty || resSN.isEmpty || resTF.isEmpty || resJP.isEmpty)
-                      ? null // 다 안 고르면 비활성화
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple, foregroundColor: Colors.white),
+                  onPressed: (_currentEorI.isEmpty || _currentNorS.isEmpty || _currentForT.isEmpty || _currentPorJ.isEmpty)
+                      ? null 
                       : () {
-                          String result = "$resIE$resSN$resTF$resJP";
-                          Navigator.pop(ctx); // 테스트 창 닫고
-                          _showMbtiResult(result); // 결과 창 보여주기
+                          // 결과 조합 (예: INTJ)
+                          String result = "$_currentEorI$_currentNorS$_currentForT$_currentPorJ";
+                          Navigator.pop(context);
+                          _updateMbti(result); // DB 업데이트 & 결과창
                         },
-                  style: ElevatedButton.styleFrom(backgroundColor: _holyGold, foregroundColor: Colors.white),
-                  child: const Text("결과 확인"),
+                  child: Text(AppLocale.t('btn_confirm')),
                 ),
               ],
             );
@@ -211,6 +204,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
         );
       },
     );
+  }
+
+  // 헬퍼: 옵션 버튼
+  Widget _buildOptionButton(String value, String text, String groupValue, Function(String) onChanged) {
+    bool isSelected = groupValue == value;
+    return GestureDetector(
+      onTap: () => onChanged(value),
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.deepPurple : Colors.grey[200],
+          borderRadius: BorderRadius.circular(8),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          text,
+          style: TextStyle(
+            color: isSelected ? Colors.white : Colors.black,
+            fontSize: 12,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ),
+    );
+  }
+
+  // 헬퍼: MBTI 업데이트
+  void _updateMbti(String result) {
+    setState(() => _mbti = result);
+    _showMbtiResult(result); // 결과 설명 팝업 호출
   }
 
   // 🏆 MBTI 결과 및 설명 보여주기
@@ -271,7 +296,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               TextButton.icon(
                 onPressed: () {
                   Navigator.pop(ctx);
-                  _startMbtiTest(); // 테스트 시작!
+                  _showMbtiTestDialog(); // 테스트 시작 (수정됨)
                 },
                 icon: const Icon(Icons.help_outline, color: Colors.blue),
                 label: Text(AppLocale.t('mbti_unknown_link'), style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),

@@ -30,11 +30,11 @@ class _ShopScreenState extends State<ShopScreen> with SingleTickerProviderStateM
     // ...
   ];
 
-  // 12지신 + 기본 아바타 목록 (파일명과 정확히 일치해야 함!)
+  // 12지신 + 기본 아바타 목록 (파일 이름과 정확히 일치!)
   final List<Map<String, dynamic>> _avatarItems = [
     {'file': 'avatar_1.png', 'price': 50}, // 기본 소녀
     {'file': 'rat.png', 'price': 50},      // 쥐
-    {'file': 'ox.png', 'price': 50},       // 소 (기존에 샀던 거!)
+    {'file': 'ox.png', 'price': 50},       // 소 (보유중인 것!)
     {'file': 'tiger.png', 'price': 50},    // 호랑이
     {'file': 'rabbit.png', 'price': 50},   // 토끼
     {'file': 'dragon.png', 'price': 100},  // 용 (비쌈)
