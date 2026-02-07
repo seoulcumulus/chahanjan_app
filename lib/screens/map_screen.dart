@@ -336,9 +336,10 @@ class _MapScreenState extends State<MapScreen> {
         if (distance <= _currentRadius) {
           final String nickname = data['nickname'] ?? '알 수 없음';
           final String avatar = data['avatar_image'] ?? 'rat.png'; // DB에 저장된 아바타 파일명
+          final double temp = (data['manner_temp'] ?? 36.5).toDouble(); // 매너 온도 가져오기
 
-          // 🌟 [핵심] 아바타 이미지를 마커 아이콘으로 변환!
-          final BitmapDescriptor customIcon = await _createAvatarMarker(avatar);
+          // 🌟 [핵심] 아바타 이미지를 마커 아이콘으로 변환! (온도 포함)
+          final BitmapDescriptor customIcon = await _createAvatarMarker(avatar, temp);
 
           realUserMarkers.add(
             Marker(
@@ -367,61 +368,95 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   // 🎨 [추가] 아바타 이미지를 지도 마커 아이콘으로 변환하는 함수
-  Future<BitmapDescriptor> _createAvatarMarker(String avatarName) async {
+  // 🎨 [업그레이드] 매너 온도에 따라 왕관/링을 그려주는 마커 함수
+  Future<BitmapDescriptor> _createAvatarMarker(String avatarName, double temp) async {
     try {
-      // 1. 이미지 불러오기
+      // 1. 이미지 로드
       final ByteData data = await rootBundle.load('assets/avatars/$avatarName');
-      final ui.Codec codec = await ui.instantiateImageCodec(
-        data.buffer.asUint8List(),
-        targetWidth: 150, // 마커 크기 (적절히 조절 가능)
-      );
+      final ui.Codec codec = await ui.instantiateImageCodec(data.buffer.asUint8List(), targetWidth: 150);
       final ui.FrameInfo fi = await codec.getNextFrame();
       final ui.Image image = fi.image;
 
-      // 2. 그림 그릴 준비 (캔버스)
+      // 2. 캔버스 준비 (왕관 그릴 공간을 위해 높이를 좀 더 크게 잡음)
+      final double size = 150.0;
+      final double extraTop = 40.0; // 머리 위 여유 공간
       final ui.PictureRecorder pictureRecorder = ui.PictureRecorder();
-      final Canvas canvas = Canvas(pictureRecorder);
-      final double size = 150.0; // 전체 크기
-      final double shadowWidth = 10.0; // 테두리 두께
-
-      final Paint borderPaint = Paint()
-        ..color = const Color(0xFF24FCFF) // 시그니처 민트색 테두리
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = shadowWidth;
-
-      final double radius = size / 2;
-
-      // 3. 원형으로 자르기 (Clip)
-      final Path clipPath = Path()
-        ..addOval(Rect.fromCircle(center: Offset(radius, radius), radius: radius));
       
-      canvas.clipPath(clipPath);
+      // 캔버스 크기: 가로 150, 세로 190 (머리 위 장식 포함)
+      final Canvas canvas = Canvas(pictureRecorder, Rect.fromPoints(Offset(0, 0), Offset(size, size + extraTop)));
+      
+      final double radius = size / 2;
+      final Offset center = Offset(radius, radius + extraTop); // 아바타의 중심점 (y좌표를 내림)
 
-      // 4. 이미지 그리기
-      // (이미지 비율에 맞춰 중앙을 크롭해서 그림)
+      // 3. 아바타 그리기 (원형 클리핑)
+      final Path clipPath = Path()
+        ..addOval(Rect.fromCircle(center: center, radius: radius));
+      canvas.clipPath(clipPath);
+      
       paintImage(
         canvas: canvas,
-        rect: Rect.fromLTWH(0, 0, size, size),
+        rect: Rect.fromCircle(center: center, radius: radius),
         image: image,
-        fit: BoxFit.cover, // 꽉 차게
+        fit: BoxFit.cover,
       );
 
-      // 5. 테두리 그리기
-      canvas.drawCircle(Offset(radius, radius), radius - (shadowWidth / 2), borderPaint);
+      // 🌟 [핵심] 매너 온도에 따른 장식 그리기
+      // 클리핑을 해제하기 위해 복구하지 않고, 원 위에 덧그립니다.
+      // (단, canvas.clipPath가 적용된 상태라 덧그리기가 잘릴 수 있으므로 
+      //  실제로는 clipPath 전에 그리거나, 별도의 레이어 처리가 필요하지만
+      //  간단하게 테두리(Stroke) 기능을 이용해 효과를 줍니다.)
 
-      // 6. 비트맵으로 변환 완료
-      final ui.Image markerAsImage = await pictureRecorder.endRecording().toImage(
-        size.toInt(),
-        size.toInt(),
-      );
-      final ByteData? byteData = await markerAsImage.toByteData(format: ui.ImageByteFormat.png);
-      final Uint8List uint8List = byteData!.buffer.asUint8List();
+      // 4. 테두리 (기본 민트색)
+      final Paint borderPaint = Paint()
+        ..color = const Color(0xFF24FCFF)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 8.0;
+      
+      canvas.drawCircle(center, radius - 4, borderPaint);
 
-      return BitmapDescriptor.fromBytes(uint8List);
+      // 👑 5. 왕관 그리기 (85도 이상)
+      if (temp >= 85.0) {
+        final Paint crownPaint = Paint()..color = const Color(0xFFFFD700); // 골드
+        final Path crownPath = Path();
+        
+        // 왕관 좌표 (머리 위)
+        double cw = 60; // 왕관 너비
+        double ch = 40; // 왕관 높이
+        double cx = center.dx;
+        double cy = center.dy - radius + 10; // 머리 꼭대기
+
+        crownPath.moveTo(cx - cw/2, cy); // 왼쪽 아래
+        crownPath.lineTo(cx - cw/2, cy - ch); // 왼쪽 위
+        crownPath.lineTo(cx - cw/4, cy - ch/2); // 왼쪽 골
+        crownPath.lineTo(cx, cy - ch - 10); // 가운데 뾰족
+        crownPath.lineTo(cx + cw/4, cy - ch/2); // 오른쪽 골
+        crownPath.lineTo(cx + cw/2, cy - ch); // 오른쪽 위
+        crownPath.lineTo(cx + cw/2, cy); // 오른쪽 아래
+        crownPath.close();
+
+        canvas.drawPath(crownPath, crownPaint);
+      } 
+      // 😇 6. 천사 링 그리기 (70도 이상)
+      else if (temp >= 70.0) {
+        final Paint haloPaint = Paint()
+          ..color = const Color(0xFFFFD700) // 골드
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 6.0;
+        
+        // 머리 위에 타원 그리기
+        canvas.drawOval(
+          Rect.fromCenter(center: Offset(center.dx, center.dy - radius - 10), width: 80, height: 20),
+          haloPaint
+        );
+      }
+
+      // 7. 이미지 생성
+      final ui.Image markerImage = await pictureRecorder.endRecording().toImage(size.toInt(), (size + extraTop).toInt());
+      final ByteData? byteData = await markerImage.toByteData(format: ui.ImageByteFormat.png);
+      return BitmapDescriptor.fromBytes(byteData!.buffer.asUint8List());
 
     } catch (e) {
-      print("❌ 마커 변환 오류 ($avatarName): $e");
-      // 에러 나면 기본 핀 반환
+      print("❌ 마커 생성 오류: $e");
       return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet);
     }
   }

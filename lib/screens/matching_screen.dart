@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../utils/translations.dart';
 import '../services/user_service.dart'; // Ensure this import exists for deducting tea leaves
 import 'chat_screen.dart'; // Ensure this import exists for navigation
+import '../widgets/manner_avatar.dart'; // 👈 매너 아바타 위젯
 
 class MatchingScreen extends StatefulWidget {
   const MatchingScreen({super.key});
@@ -226,6 +227,7 @@ class _MatchingScreenState extends State<MatchingScreen> {
     final String gender = data['gender'] ?? 'unknown'; // 'male', 'female'
     final String bio = data['bio'] ?? AppLocale.t('map_snippet'); // 한줄 소개 (없으면 기본 문구)
     final List<dynamic> interests = data['interests'] ?? ['차 마시기 🍵', '대화하기 🗣️']; // 관심사 태그
+    final double temp = (data['manner_temp'] ?? 36.5).toDouble(); // 👈 매너 온도 가져오기
 
     return Container(
       decoration: BoxDecoration(
@@ -245,13 +247,12 @@ class _MatchingScreenState extends State<MatchingScreen> {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            // 1. 배경 (아바타 이미지)
-            Container(
-              color: Colors.grey[100],
-              child: Image.asset(
-                'assets/avatars/$avatarFile',
-                fit: BoxFit.contain, // 얼굴이 잘리지 않게
-                alignment: const Alignment(0, -0.2), // 약간 위쪽 정렬
+            // 1. 배경 (MannerAvatar로 교체)
+            Center(
+              child: MannerAvatar(
+                imagePath: avatarFile,
+                temp: temp,
+                size: 250, // 카드니까 크게!
               ),
             ),
 
