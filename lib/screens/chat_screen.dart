@@ -6,6 +6,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'dart:io';
 import 'package:translator/translator.dart'; // 🌍 번역 패키지 (Adapted import)
 import 'call_screen.dart'; // 영상통화 화면
+import '../services/user_service.dart'; // 👈 UserService 추가
 
 class ChatScreen extends StatefulWidget {
   final String chatRoomId;
@@ -103,11 +104,63 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+
+
+  // 🌡️ [추가] 매너 점수 업데이트 함수 (UserService 위임)
+  Future<void> _updateMannerScore(String targetUid, double delta) async {
+    await UserService().updateMannerScore(targetUid, delta);
+  }
+
+  // 🍵 [추가] 리뷰 다이얼로그
+  Future<void> _showReviewDialog() async {
+    return showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text("티타임은 어떠셨나요? 🍵"),
+          content: const Text("상대방의 매너를 평가해주세요.\n평가는 익명으로 반영됩니다."),
+          actions: [
+            // 👎 별로예요
+            TextButton(
+              onPressed: () {
+                _updateMannerScore(widget.peerUid, -0.3); // 점수 깎기
+                Navigator.pop(context); // 팝업 닫기
+                Navigator.pop(context); // 채팅방 나가기
+              },
+              child: const Text("별로예요", style: TextStyle(color: Colors.grey)),
+            ),
+            // 👍 최고예요
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF24FCFF)),
+              onPressed: () {
+                _updateMannerScore(widget.peerUid, 0.5); // 점수 올리기
+                Navigator.pop(context);
+                Navigator.pop(context);
+                
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("따뜻한 평가를 남겼습니다! 🌡️")),
+                );
+              },
+              child: const Text("최고였어요!", style: TextStyle(color: Colors.black)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final myUid = FirebaseAuth.instance.currentUser?.uid;
 
-    return Scaffold(
+    return PopScope(
+      canPop: false, // 👈 기본 뒤로가기 비활성화
+      onPopInvoked: (didPop) async {
+        if (!didPop) {
+          await _showReviewDialog(); // 👈 리뷰 다이얼로그 표시
+        }
+      },
+      child: Scaffold(
       appBar: AppBar(
         title: Row(
           children: [
@@ -204,6 +257,7 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
         ],
       ),
+    ),
     );
   }
 

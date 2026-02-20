@@ -85,4 +85,32 @@ class UserService {
   Future<void> blockChatRoom(String chatId) async {
     await _firestore.collection('chat_rooms').doc(chatId).delete();
   }
+  // 🌡️ 매너 온도 업데이트 (트랜잭션 안전 보장)
+  Future<void> updateMannerScore(String targetUid, double amount) async {
+    final userRef = _firestore.collection('users').doc(targetUid);
+    
+    try {
+      await _firestore.runTransaction((transaction) async {
+        final snapshot = await transaction.get(userRef);
+        if (!snapshot.exists) return;
+
+        // 현재 온도 가져오기 (없으면 36.5)
+        double currentTemp = (snapshot.data()?['manner_temp'] ?? 36.5).toDouble();
+        double newTemp = currentTemp + amount;
+
+        // 🔒 범위 제한 (0 ~ 99.9도)
+        if (newTemp > 99.9) newTemp = 99.9;
+        if (newTemp < 0.0) newTemp = 0.0;
+        
+        // 소수점 한 자리까지만 저장
+        newTemp = double.parse(newTemp.toStringAsFixed(1));
+
+        transaction.update(userRef, {'manner_temp': newTemp});
+      });
+      
+      print("🌡️ 유저($targetUid) 매너 온도 업데이트: $amount 적립 완료");
+    } catch (e) {
+      print("❌ 매너 온도 업데이트 실패: $e");
+    }
+  }
 }
