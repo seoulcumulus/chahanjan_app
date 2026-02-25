@@ -18,6 +18,7 @@ import 'chat_screen.dart'; // [추가] 채팅 화면
 import '../utils/app_strings.dart';
 import '../utils/translations.dart'; // [추가] 번역 파일
 import '../services/user_service.dart'; // [추가]
+import '../utils/marker_generator.dart'; // [추가] MarkerGenerator
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -42,13 +43,16 @@ class _MapScreenState extends State<MapScreen> {
   Set<Marker> _myMarker = {}; 
 
   // 2. 🔵 남의 마커들 (검색된 유저 전용)
-  Set<Marker> _otherMarkers = {};
+  Map<String, Marker> _otherMarkers = {};
   Set<Circle> _circles = {}; // 1. 원(Circle)을 관리할 변수 선언
   double _currentRadius = 5000.0; // 현재 반경 (기본값 5000m)
   String _currentAvatar = 'rat.png'; // 현재 아바타 (변화 감지용)
   BitmapDescriptor? _myMarkerIcon; // 변환된 마커 아이콘
   BitmapDescriptor? _myIcon; // 🌟 [추가] 내 아바타 마커 아이콘 저장용
   bool _isFirstLoad = true; // [추가] 처음 실행 여부 확인용
+
+  // ⚡ 현재 애니메이션이 진행 중인지 체크하는 변수
+  bool _isAnimating = false;
 
   final Color _signatureColor = const Color(0xFF24FCFF);
 
@@ -343,7 +347,7 @@ class _MapScreenState extends State<MapScreen> {
 
     try {
       final QuerySnapshot snapshot = await FirebaseFirestore.instance.collection('users').get();
-      Set<Marker> realUserMarkers = {};
+      Map<String, Marker> realUserMarkers = {};
 
       for (var doc in snapshot.docs) {
         final data = doc.data() as Map<String, dynamic>;
@@ -364,63 +368,21 @@ class _MapScreenState extends State<MapScreen> {
         if (distance <= _currentRadius) {
           final String nickname = data['nickname'] ?? '알 수 없음';
           final String avatar = data['avatar_image'] ?? 'rat.png'; // DB에 저장된 아바타 파일명
-          final double temp = (data['manner_temp'] ?? 36.5).toDouble(); // 매너 온도 가져오기
+          
+          final String assetPath = 'assets/avatars/$avatar';
 
-          // 🔍 [디버그] 온도 확인
-          print("👤 $nickname - 온도: $temp°C ${temp >= 85 ? '👑 (왕관)' : temp >= 70 ? '😇 (헤일로)' : ''}");
+          // 🌟 [핵심] 아바타 이미지를 2.5D 마커 아이콘으로 변환!
+          BitmapDescriptor initialIcon = await MarkerGenerator.create25DMarkerBitmap(assetPath, nickname, 0);
 
-          // 🌟 [핵심] 아바타 이미지를 마커 아이콘으로 변환! (온도 포함)
-          final BitmapDescriptor customIcon = await _createAvatarMarker(avatar, temp);
-
-          realUserMarkers.add(
-            Marker(
-              markerId: MarkerId(uid),
-              position: LatLng(userGeo.latitude, userGeo.longitude),
-              icon: customIcon, // 👈 여기가 핀 대신 얼굴 아이콘으로 바뀜!
-              // ✅ [핵심] 마커를 누르면 카드 팝업 띄우기!
-              onTap: () {
-                showDialog(
-                  context: context,
-                  builder: (context) {
-                    return Dialog(
-                      backgroundColor: Colors.transparent, // 배경 투명하게
-                      elevation: 0,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // 1. 프로필 카드 (재사용!)
-                          ProfileCard(data: data),
-                          
-                          const SizedBox(height: 15),
-
-                          // 2. 채팅 버튼 (카드 아래에 배치)
-                          ElevatedButton.icon(
-                            onPressed: () {
-                              Navigator.pop(context); // 팝업 닫고
-                              _onUserMarkerTapped(uid, nickname, avatar); // 채팅 시도 (찻잎 소모)
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF24FCFF), // 시그니처 컬러
-                              foregroundColor: Colors.black,
-                              padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 12),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                            ),
-                            icon: const Icon(Icons.chat_bubble),
-                            label: const Text("대화 요청하기 (1🍵)", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                          ),
-                          
-                          // 3. 닫기 버튼 (X)
-                          IconButton(
-                            icon: const Icon(Icons.close, color: Colors.white, size: 30),
-                            onPressed: () => Navigator.pop(context),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
+          realUserMarkers[uid] = Marker(
+            markerId: MarkerId(uid),
+            position: LatLng(userGeo.latitude, userGeo.longitude),
+            icon: initialIcon, 
+            // ✅ [핵심] 마커를 누르면 회전 애니메이션 시작 + 카드 팝업 띄우기!
+            onTap: () {
+              _animateMarkerRotation(uid, LatLng(userGeo.latitude, userGeo.longitude), avatar, nickname, data);
+              _showUserProfileDialog(uid, nickname, avatar, data);
+            },
           );
         }
       }
@@ -434,6 +396,103 @@ class _MapScreenState extends State<MapScreen> {
     } catch (e) {
       print("❌ 유저 검색 오류: $e");
     }
+  }
+
+  // 🔄 특정 유저의 마커를 360도 회전시키는 함수 (프레임 겹침 버그 완벽 해결 버전)
+  Future<void> _animateMarkerRotation(String userId, LatLng position, String avatarName, String nickname, Map<String, dynamic> data) async {
+    if (_isAnimating) return; // 이미 돌고 있으면 중복 실행 방지
+    _isAnimating = true;
+
+    String assetPath = 'assets/avatars/$avatarName';
+
+    // 🚀 Timer 대신 for문과 await를 사용해 한 프레임씩 안전하게 렌더링합니다.
+    for (int currentFrame = 1; currentFrame <= 8; currentFrame++) {
+      if (!mounted) break; // 혹시라도 화면을 벗어나면 애니메이션 즉시 중지
+
+      // 1~7번 프레임을 차례로 보여주고, 마지막 8번째는 0번(정면)으로 복귀
+      int frameIndex = currentFrame % 8; 
+
+      // 다음 프레임 이미지가 완벽하게 만들어질 때까지 기다림(await)
+      BitmapDescriptor newIcon = await MarkerGenerator.create25DMarkerBitmap(assetPath, nickname, frameIndex);
+      
+      // 지도에 새 이미지 적용
+      _updateMarkerOnMap(userId, position, newIcon, avatarName, nickname, data);
+
+      // 0.1초 대기 후 다음 프레임으로 (이렇게 해야 팽이처럼 부드럽게 돕니다)
+      await Future.delayed(const Duration(milliseconds: 100)); 
+    }
+
+    _isAnimating = false; // 애니메이션 종료 상태로 변경
+  }
+
+  // 🗺️ 지도 위의 마커를 실제로 업데이트하는 함수
+  void _updateMarkerOnMap(String userId, LatLng position, BitmapDescriptor icon, String avatarName, String nickname, Map<String, dynamic> data) {
+    if (!mounted) return;
+
+    setState(() {
+      _otherMarkers[userId] = Marker(
+        markerId: MarkerId(userId),
+        position: position,
+        icon: icon,
+        anchor: const Offset(0.5, 0.9), 
+        // 🌟 여기가 변경된 부분입니다! (async 추가)
+        onTap: () async { 
+          // 1. 회전 애니메이션이 완전히 끝날 때까지 기다립니다 (await)
+          await _animateMarkerRotation(userId, position, avatarName, nickname, data);
+          
+          // 2. 다 돌고 나서 0.2초(200ms) 살짝 뜸을 들입니다.
+          await Future.delayed(const Duration(milliseconds: 200));
+          
+          // 3. 이제 우아하게 프로필 팝업을 띄웁니다!
+          if (mounted) {
+             _showUserProfileDialog(userId, nickname, avatarName, data);
+          }
+        },
+      );
+    });
+  }
+
+  void _showUserProfileDialog(String uid, String nickname, String avatar, Map<String, dynamic> data) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          backgroundColor: Colors.transparent, // 배경 투명하게
+          elevation: 0,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 1. 프로필 카드
+              ProfileCard(data: data),
+              
+              const SizedBox(height: 15),
+
+              // 2. 채팅 버튼 (카드 아래에 배치)
+              ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pop(context); // 팝업 닫고
+                  _onUserMarkerTapped(uid, nickname, avatar); // 채팅 시도 (찻잎 소모)
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF24FCFF), // 시그니처 컬러
+                  foregroundColor: Colors.black,
+                  padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                ),
+                icon: const Icon(Icons.chat_bubble),
+                label: const Text("대화 요청하기 (1🍵)", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              ),
+              
+              // 3. 닫기 버튼 (X)
+              IconButton(
+                icon: const Icon(Icons.close, color: Colors.white, size: 30),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   // 🎨 [추가] 아바타 이미지를 지도 마커 아이콘으로 변환하는 함수
@@ -589,7 +648,7 @@ class _MapScreenState extends State<MapScreen> {
               zoom: 16,
             ),
             // 🌟 [핵심] 주변 유저 마커 + 내 마커 합치기 (.union)
-            markers: _otherMarkers.union(myMarkerSet),
+            markers: _otherMarkers.values.toSet().union(myMarkerSet),
             circles: _circles, // 3. 위에서 만든 원 세트 연결
             myLocationEnabled: false, // ❌ 기본 파란 점 끄기 (이제 필요 없음)
             myLocationButtonEnabled: false, // 기본 버튼 끄기 (우리가 만든 거 쓸 거임)

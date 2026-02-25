@@ -38,9 +38,22 @@ class ProfileCard extends StatelessWidget {
           fit: StackFit.expand,
           children: [
             // 1. 아바타 배경
-            Image.asset(
-              'assets/avatars/$avatarFile',
-              fit: BoxFit.cover,
+            SizedBox.expand(
+              child: FittedBox(
+                fit: BoxFit.cover, // 🌟 자른 이미지를 카드 전체에 꽉 차게 확대
+                alignment: Alignment.topCenter, // 얼굴이 잘리지 않도록 위쪽 정렬
+                child: ClipRect(
+                  child: Align(
+                    alignment: Alignment.topLeft, // 원본의 왼쪽 맨 위(정면) 기준
+                    widthFactor: 0.25, // 가로를 1/4 크기(4칸 중 1칸)로 자름
+                    heightFactor: 0.5, // 세로를 1/2 크기(2줄 중 1줄)로 자름
+                    child: Image.asset(
+                      'assets/avatars/$avatarFile',
+                      // 🚨 주의: 이곳에 있던 fit: BoxFit.cover는 지워야 원본 비율대로 똑바로 잘립니다!
+                    ),
+                  ),
+                ),
+              ),
             ),
             
             // 2. 그라데이션 (텍스트 가독성용)

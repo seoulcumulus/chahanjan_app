@@ -124,9 +124,28 @@ class ChatListScreen extends StatelessWidget {
         }
 
         return ListTile(
-          leading: const CircleAvatar(
-            backgroundColor: Colors.amberAccent,
-            child: Text('🐼'), // 나중에 peerAvatar 이미지로 교체
+          leading: CircleAvatar(
+            backgroundColor: Colors.white,
+            // 🌟 8방향 스프라이트 시트에서 '정면'만 잘라서 보여주기
+            child: ClipOval(
+              child: SizedBox(
+                width: 60, height: 60,
+                child: FittedBox(
+                  fit: BoxFit.cover, // 자른 이미지를 동그라미에 꽉 차게 확대
+                  child: ClipRect(
+                    child: Align(
+                      alignment: Alignment.topLeft, // 왼쪽 맨 위 기준
+                      widthFactor: 0.25, // 가로를 4등분 한 것 중 1개
+                      heightFactor: 0.5, // 세로를 2등분 한 것 중 1개
+                      child: Image.asset(
+                        'assets/avatars/$peerAvatar',
+                        errorBuilder: (_, __, ___) => const Icon(Icons.person, size: 30, color: Colors.grey),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ),
           title: Text(peerNickname, style: const TextStyle(fontWeight: FontWeight.bold)),
           

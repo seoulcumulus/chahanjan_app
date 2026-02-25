@@ -672,7 +672,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Image.asset('assets/avatars/$avatar', height: 50, errorBuilder: (_,__,___)=>const Icon(Icons.person)),
+                          ClipOval(
+                            child: SizedBox(
+                              width: 50, height: 50,
+                              child: FittedBox(
+                                fit: BoxFit.cover,
+                                child: ClipRect(
+                                  child: Align(
+                                    alignment: Alignment.topLeft,
+                                    widthFactor: 0.25,
+                                    heightFactor: 0.5,
+                                    child: Image.asset(
+                                      'assets/avatars/$avatar',
+                                      errorBuilder: (_,__,___)=>const Icon(Icons.person),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
                           const SizedBox(height: 5),
                           Text(avatar.split('.')[0], style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
                         ],
