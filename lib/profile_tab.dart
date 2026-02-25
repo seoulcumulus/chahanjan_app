@@ -1,20 +1,22 @@
+import 'dart:io'; // 👈 [추가] File 객체를 사용하기 위해 필요
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart'; // 👈 [추가] 파이어베이스 스토리지
+import 'package:image_picker/image_picker.dart'; // 👈 [추가] 갤러리 접근
 import 'dart:math';
-// import '../utils/app_strings.dart'; // ⚠️ 주의: 사용자님의 AppStrings 파일 경로가 맞는지 확인해주세요!
 
-// (혹시 AppStrings 파일이 없어서 에러가 난다면, 임시로 아래 클래스를 주석 해제해서 쓰세요)
+// 임시 AppStrings (기존과 동일)
 class AppStrings {
   static const List<String> animalsKeys = ['cat', 'dog', 'lion', 'tiger', 'bear', 'rabbit'];
   static String getByLang(String lang, String key) {
     if (key == 'profile_title') return "내 정보";
-    if (key == 'inventory') return "나의 아바타 컬렉션";
+    if (key == 'inventory') return "나의 지도 마커 (3D 캐릭터)"; // 직관적으로 이름 변경
     if (key == 'nickname') return "닉네임";
     if (key == 'save') return "프로필 저장";
     if (key.startsWith('adj')) return "신성한";
     if (key.startsWith('bio')) return "커피 한잔의 여유를 아는 품격 있는 사람";
-    return key; // 기본값 리턴
+    return key;
   }
 }
 
@@ -26,30 +28,32 @@ class ProfileTab extends StatefulWidget {
 }
 
 class _ProfileTabState extends State<ProfileTab> {
-  // 🎨 성스러운 컬러 팔레트 정의
-  final Color _holyGold = const Color(0xFFD4AF37); // 메탈릭 골드
-  final Color _holyPurple = const Color(0xFF2E003E); // 딥 퍼플 (교황청 느낌)
-  final Color _creamyWhite = const Color(0xFFF9F9F9); // 크림색 배경
+  final Color _holyGold = const Color(0xFFD4AF37);
+  final Color _holyPurple = const Color(0xFF2E003E);
+  final Color _creamyWhite = const Color(0xFFF9F9F9);
 
   final TextEditingController _nicknameController = TextEditingController();
   final TextEditingController _bioController = TextEditingController();
 
+  // 🌟 [추가] 실제 프로필 사진 관련 변수
+  File? _profileImageFile; // 갤러리에서 막 고른 새 사진 파일
+  String? _profileImageUrl; // 서버에 이미 저장되어 있던 사진 URL
+  final ImagePicker _picker = ImagePicker();
+
+  // 📍 [유지] 지도 마커용 캐릭터 (아바타) 변수
   String _selectedAvatar = 'rat.png';
-  List<dynamic> _myInventory = ['rat.png', 'cat.png', 'dog.png']; // (테스트용 기본값 추가함)
+  List<dynamic> _myInventory = ['rat.png', 'cat.png', 'dog.png'];
 
   String _selectedLanguage = 'Korean';
   String _gender = '남성';
   double _age = 25;
   List<String> _selectedInterests = [];
   bool _isLoading = true;
-
-  // MBTI
   String _mbti = ''; 
   final List<String> _mbtiList = [
     'INTJ', 'INTP', 'ENTJ', 'ENTP', 'INFJ', 'INFP', 'ENFJ', 'ENFP',
     'ISTJ', 'ISFJ', 'ESTJ', 'ESFJ', 'ISTP', 'ISFP', 'ESTP', 'ESFP'
   ];
-
   final List<String> _interestsOptions = [
     '등산 ⛰️', '골프 ⛳', '헬스 💪', '테니스 🎾', '야구 ⚾', '축구 ⚽', '와인 🍷',
     '커피 ☕', '위스키 🥃', '맛집 🍕', '독서 📚', '재테크 💰', '명상 🧘', '게임 🎮', '비즈니스 💼'
@@ -71,12 +75,17 @@ class _ProfileTabState extends State<ProfileTab> {
         final data = doc.data() as Map<String, dynamic>;
         setState(() {
           _nicknameController.text = data['nickname'] ?? user.displayName ?? '';
-          _bioController.text = data['status'] ?? ''; // 'bio' 대신 'status'로 통일하는 게 좋습니다
+          _bioController.text = data['status'] ?? ''; 
+          
+          // 📸 [추가] 서버에서 실제 사진 URL 가져오기
+          _profileImageUrl = data['profile_image_url'];
+          
+          // 📍 [유지] 지도 마커 가져오기
           _selectedAvatar = data['avatar_image'] ?? 'rat.png';
-          // 보관함이 비어있으면 기본값 사용 (테스트용)
           _myInventory = (data['owned_avatars'] != null && (data['owned_avatars'] as List).isNotEmpty) 
               ? data['owned_avatars'] 
               : ['rat.png', 'cat.png', 'dog.png']; 
+
           _selectedLanguage = data['language'] ?? 'Korean';
           _gender = data['gender'] ?? '남성';
           _age = (data['age'] ?? 25).toDouble();
@@ -90,6 +99,24 @@ class _ProfileTabState extends State<ProfileTab> {
     } catch (e) {
       print("에러 발생: $e");
       setState(() => _isLoading = false);
+    }
+  }
+
+  // 📸 [추가] 갤러리에서 사진 고르기 함수
+  Future<void> _pickImage() async {
+    try {
+      final pickedFile = await _picker.pickImage(
+        source: ImageSource.gallery, 
+        imageQuality: 70, // 이미지 용량 최적화
+        maxWidth: 800,
+      );
+      if (pickedFile != null) {
+        setState(() {
+          _profileImageFile = File(pickedFile.path); // 화면에 즉시 새 사진 띄우기 위해 저장
+        });
+      }
+    } catch (e) {
+      print("이미지 선택 에러: $e");
     }
   }
 
@@ -174,23 +201,39 @@ class _ProfileTabState extends State<ProfileTab> {
     );
   }
 
-  // 💾 프로필 저장 (안전장치 강화)
+  // 💾 프로필 저장 (스토리지 업로드 로직 추가)
   Future<void> _saveProfile() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
     
     setState(() => _isLoading = true);
     try {
-      // .set(..., merge: true)를 사용하여 문서가 없으면 생성, 있으면 업데이트
+      String? finalImageUrl = _profileImageUrl; // 기존 URL로 시작
+
+      // 📸 [핵심] 사용자가 갤러리에서 새 사진을 골랐다면? Firebase Storage에 먼저 업로드!
+      if (_profileImageFile != null) {
+        // 스토리지 경로: profile_images/유저UID.jpg
+        final storageRef = FirebaseStorage.instance.ref().child('profile_images').child('${user.uid}.jpg');
+        
+        // 사진 파일 업로드
+        await storageRef.putFile(_profileImageFile!);
+        
+        // 업로드 완료된 사진의 다운로드 URL 가져오기
+        finalImageUrl = await storageRef.getDownloadURL();
+      }
+
+      // 파이어스토어에 텍스트 데이터와 URL 함께 저장
       await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
         'uid': user.uid,
-        'email': user.email,
         'nickname': _nicknameController.text.trim(),
-        'status': _bioController.text.trim(), // 지도 화면에서 쓰기 편하게 'status'로 저장
-        'bio': _bioController.text.trim(),    // 혹시 몰라 'bio'로도 저장
-        'avatar_image': _selectedAvatar, 
+        'status': _bioController.text.trim(),
+        'bio': _bioController.text.trim(),
+        
+        // 🌟 [핵심] 실제 사진과 지도 마커 데이터 완전 분리 저장!
+        'profile_image_url': finalImageUrl, // 진짜 사람 사진 URL
+        'avatar_image': _selectedAvatar,    // 지도에 띄울 캐릭터 파일명 (ex: rat.png)
+        
         'owned_avatars': _myInventory,
-        'language': _selectedLanguage,
         'gender': _gender,
         'age': _age.toInt(),
         'interests': _selectedInterests,
@@ -200,10 +243,7 @@ class _ProfileTabState extends State<ProfileTab> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("✅ ${AppStrings.getByLang(_selectedLanguage, 'save')} 완료!"),
-            backgroundColor: _holyPurple,
-          )
+          SnackBar(content: Text("✅ 저장 완료!"), backgroundColor: _holyPurple)
         );
       }
     } catch (e) {
@@ -218,9 +258,8 @@ class _ProfileTabState extends State<ProfileTab> {
     return Scaffold(
       backgroundColor: _creamyWhite,
       appBar: AppBar(
-        title: Text(AppStrings.getByLang(_selectedLanguage, 'profile_title'), 
-          style: TextStyle(fontWeight: FontWeight.bold, color: _holyGold)),
-        backgroundColor: _holyPurple, // 성스러운 보라색 헤더
+        title: Text(AppStrings.getByLang(_selectedLanguage, 'profile_title'), style: TextStyle(fontWeight: FontWeight.bold, color: _holyGold)),
+        backgroundColor: _holyPurple,
         elevation: 0,
         centerTitle: true,
       ),
@@ -229,10 +268,46 @@ class _ProfileTabState extends State<ProfileTab> {
           : SingleChildScrollView(
               padding: const EdgeInsets.all(20),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.center, // 사진을 위해 가운데 정렬
                 children: [
-                  // 1. [나의 아바타 컬렉션] - 카드 스타일 적용
-                  _buildSectionTitle(AppStrings.getByLang(_selectedLanguage, 'inventory')),
+                  // 📸 1. [신규] 나의 실제 프로필 사진 등록 영역
+                  _buildSectionTitle("나의 실제 프로필 사진"),
+                  GestureDetector(
+                    onTap: _pickImage, // 클릭 시 갤러리 열기
+                    child: Stack(
+                      alignment: Alignment.bottomRight,
+                      children: [
+                        CircleAvatar(
+                          radius: 60,
+                          backgroundColor: Colors.grey[300],
+                          // 1순위: 방금 고른 파일 / 2순위: 서버 URL / 3순위: 기본 아이콘
+                          backgroundImage: _profileImageFile != null
+                              ? FileImage(_profileImageFile!) as ImageProvider
+                              : (_profileImageUrl != null ? NetworkImage(_profileImageUrl!) : null),
+                          child: (_profileImageFile == null && _profileImageUrl == null)
+                              ? const Icon(Icons.person, size: 60, color: Colors.white)
+                              : null,
+                        ),
+                        // 카메라 아이콘 뱃지
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: const BoxDecoration(color: Color(0xFF24FCFF), shape: BoxShape.circle),
+                          child: const Icon(Icons.camera_alt, color: Colors.black, size: 20),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  const Text("매칭 시 상대방에게 보여질 실제 얼굴입니다.", style: TextStyle(color: Colors.grey, fontSize: 12)),
+                  const SizedBox(height: 30),
+                  const Divider(),
+                  const SizedBox(height: 20),
+
+                  // 📍 2. [기존+수정] 지도 마커 아바타 선택 영역
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: _buildSectionTitle(AppStrings.getByLang(_selectedLanguage, 'inventory'))
+                  ),
                   Container(
                     height: 130,
                     padding: const EdgeInsets.all(15),
@@ -260,26 +335,22 @@ class _ProfileTabState extends State<ProfileTab> {
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
                                     border: isSelected ? Border.all(color: _holyGold, width: 3) : Border.all(color: Colors.grey[200]!, width: 1),
-                                    boxShadow: isSelected ? [BoxShadow(color: _holyGold.withOpacity(0.4), blurRadius: 10)] : null,
                                   ),
                                   child: CircleAvatar(
                                     radius: 30,
                                     backgroundColor: Colors.white,
-                                    // 🌟 8방향 스프라이트 시트에서 '정면'만 잘라서 보여주기
+                                    // 🌟 [수정] 8마리 겹침 방지 (정면만 예쁘게 자르기)
                                     child: ClipOval(
                                       child: SizedBox(
                                         width: 60, height: 60,
                                         child: FittedBox( 
-                                          fit: BoxFit.cover, // 자른 이미지를 동그라미에 꽉 차게 확대
+                                          fit: BoxFit.cover,
                                           child: ClipRect( 
                                             child: Align(
-                                              alignment: Alignment.topLeft, // 왼쪽 맨 위 기준
-                                              widthFactor: 0.25, // 가로를 4등분 한 것 중 1개
-                                              heightFactor: 0.5, // 세로를 2등분 한 것 중 1개
-                                              child: Image.asset(
-                                                'assets/avatars/$avatar', 
-                                                errorBuilder: (_, __, ___) => const Icon(Icons.person, size: 30, color: Colors.grey),
-                                              ),
+                                              alignment: Alignment.topLeft,
+                                              widthFactor: 0.25,
+                                              heightFactor: 0.5,
+                                              child: Image.asset('assets/avatars/$avatar', errorBuilder: (_, __, ___) => const Icon(Icons.person, color: Colors.grey)),
                                             ),
                                           ),
                                         ),
@@ -300,7 +371,10 @@ class _ProfileTabState extends State<ProfileTab> {
                   const SizedBox(height: 30),
 
                   // 2. 닉네임
-                  _buildSectionTitle(AppStrings.getByLang(_selectedLanguage, 'nickname')),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: _buildSectionTitle(AppStrings.getByLang(_selectedLanguage, 'nickname'))
+                  ),
                   Row(
                     children: [
                       Expanded(
@@ -311,7 +385,7 @@ class _ProfileTabState extends State<ProfileTab> {
                             enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey[300]!)),
                             focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: _holyGold)),
                             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                          ),
+                        ),
                         ),
                       ),
                       const SizedBox(width: 10),
@@ -321,7 +395,10 @@ class _ProfileTabState extends State<ProfileTab> {
                   const SizedBox(height: 25),
 
                   // 3. MBTI
-                  _buildSectionTitle("MBTI"),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: _buildSectionTitle("MBTI")
+                  ),
                   Row(
                     children: [
                       Expanded(
@@ -410,7 +487,10 @@ class _ProfileTabState extends State<ProfileTab> {
                   const SizedBox(height: 25),
 
                   // 5. 한줄 소개
-                  _buildSectionTitle("한줄 소개"),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: _buildSectionTitle("한줄 소개")
+                  ),
                   Row(
                     children: [
                       Expanded(
@@ -433,7 +513,10 @@ class _ProfileTabState extends State<ProfileTab> {
                   const SizedBox(height: 25),
 
                   // 6. 관심사
-                  _buildSectionTitle("관심사 (최대 3개)"),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: _buildSectionTitle("관심사 (최대 3개)")
+                  ),
                   Wrap(
                     spacing: 8, runSpacing: 8,
                     children: _interestsOptions.map((interest) {
@@ -456,21 +539,18 @@ class _ProfileTabState extends State<ProfileTab> {
                     }).toList(),
                   ),
                   const SizedBox(height: 40),
-
-                  // 7. 저장 버튼 (성스러운 골드 버튼)
+                  
+                  // 💾 7. 저장 버튼
                   SizedBox(
                     width: double.infinity, height: 56,
                     child: ElevatedButton(
                       onPressed: _saveProfile,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: _holyGold, 
-                        foregroundColor: Colors.white, // 글자색 흰색
-                        elevation: 5,
-                        shadowColor: _holyGold.withOpacity(0.5),
+                        foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                       ),
-                      child: Text(AppStrings.getByLang(_selectedLanguage, 'save'), 
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      child: Text(AppStrings.getByLang(_selectedLanguage, 'save'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                     ),
                   ),
                   const SizedBox(height: 20),
@@ -480,7 +560,7 @@ class _ProfileTabState extends State<ProfileTab> {
     );
   }
 
-  // 헬퍼 위젯: 섹션 타이틀
+  // (헬퍼 위젯들)
   Widget _buildSectionTitle(String title) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10, left: 5),

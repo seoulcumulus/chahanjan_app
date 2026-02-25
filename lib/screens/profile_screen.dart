@@ -1,6 +1,9 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:image_picker/image_picker.dart';
 import 'dart:math';
 import '../utils/app_strings.dart';
 import '../utils/translations.dart'; // [추가] 번역 파일
@@ -21,6 +24,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   final TextEditingController _nicknameController = TextEditingController();
   final TextEditingController _bioController = TextEditingController();
+
+  File? _profileImageFile; 
+  String? _profileImageUrl; 
+  final ImagePicker _picker = ImagePicker();
 
   String _selectedAvatar = 'rat.png';
   List<dynamic> _myInventory = ['rat.png', 'cat.png', 'dog.png', 'lion.png', 'bear.png'];
@@ -79,6 +86,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         setState(() {
           _nicknameController.text = data['nickname'] ?? '';
           _bioController.text = data['bio'] ?? data['status'] ?? '';
+          
+          _profileImageUrl = data['profile_image_url'];
+
           _selectedAvatar = data['avatar_image'] ?? 'rat.png';
           if (data['owned_avatars'] != null && (data['owned_avatars'] as List).isNotEmpty) {
             _myInventory = data['owned_avatars'];
@@ -96,6 +106,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
     } catch (e) {
       setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _pickImage() async {
+    try {
+      final pickedFile = await _picker.pickImage(
+        source: ImageSource.gallery, 
+        imageQuality: 70, 
+        maxWidth: 800,
+      );
+      if (pickedFile != null) {
+        setState(() {
+          _profileImageFile = File(pickedFile.path); 
+        });
+      }
+    } catch (e) {
+      print("이미지 선택 에러: $e");
     }
   }
 
@@ -398,12 +425,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
     FocusScope.of(context).unfocus();
     setState(() => _isLoading = true);
     try {
+      String? finalImageUrl = _profileImageUrl;
+
+      if (_profileImageFile != null) {
+        final storageRef = FirebaseStorage.instance.ref().child('profile_images').child('${user.uid}.jpg');
+        await storageRef.putFile(_profileImageFile!);
+        finalImageUrl = await storageRef.getDownloadURL(); 
+      }
+
       await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
         'uid': user.uid,
         'email': user.email,
         'nickname': _nicknameController.text.trim(),
         'bio': _bioController.text.trim(),
         'status': _bioController.text.trim(),
+        'profile_image_url': finalImageUrl,
         'avatar_image': _selectedAvatar, 
         'owned_avatars': _myInventory,
         'language': _selectedLanguage,
@@ -441,8 +477,45 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Center(
+                    child: Column(
+                      children: [
+                        _buildSectionTitle("나의 프로필 사진"),
+                        const SizedBox(height: 10),
+                        GestureDetector(
+                          onTap: _pickImage,
+                          child: Stack(
+                            alignment: Alignment.bottomRight,
+                            children: [
+                              CircleAvatar(
+                                radius: 65,
+                                backgroundColor: Colors.grey[300],
+                                backgroundImage: _profileImageFile != null
+                                    ? FileImage(_profileImageFile!) as ImageProvider
+                                    : (_profileImageUrl != null ? NetworkImage(_profileImageUrl!) : null),
+                                child: (_profileImageFile == null && _profileImageUrl == null)
+                                    ? const Icon(Icons.add_a_photo, size: 50, color: Colors.white)
+                                    : null,
+                              ),
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: const BoxDecoration(color: Color(0xFF24FCFF), shape: BoxShape.circle),
+                                child: const Icon(Icons.edit, color: Colors.black, size: 20),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        const Text("매칭 카드에 상대방에게 보여질 실제 얼굴입니다.", style: TextStyle(color: Colors.grey, fontSize: 12)),
+                        const SizedBox(height: 30),
+                        const Divider(),
+                        const SizedBox(height: 20),
+                      ],
+                    ),
+                  ),
+
                   // 1. 아바타
-                  _buildSectionTitle(AppLocale.t('my_avatar')),
+                  _buildSectionTitle("나의 지도 마커 (3D 캐릭터)"),
                   _buildInventory(), // (아래 헬퍼 함수 참고)
                   const SizedBox(height: 20),
 
