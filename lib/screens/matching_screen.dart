@@ -1,12 +1,7 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:flutter_card_swiper/flutter_card_swiper.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../utils/translations.dart';
-import '../services/user_service.dart'; // Ensure this import exists for deducting tea leaves
-import 'chat_screen.dart'; // Ensure this import exists for navigation
-import '../widgets/manner_avatar.dart'; // 👈 매너 아바타 위젯
-import '../widgets/profile_card.dart'; // 👈 프로필 카드 위젯
+import 'package:firebase_auth/firebase_auth.dart';
 
 class MatchingScreen extends StatefulWidget {
   const MatchingScreen({super.key});
@@ -15,237 +10,145 @@ class MatchingScreen extends StatefulWidget {
   State<MatchingScreen> createState() => _MatchingScreenState();
 }
 
-class _MatchingScreenState extends State<MatchingScreen> {
-  final CardSwiperController controller = CardSwiperController();
-  final String myUid = FirebaseAuth.instance.currentUser!.uid;
-
-  List<DocumentSnapshot> _candidates = [];
-  bool _isLoading = true;
+class _MatchingScreenState extends State<MatchingScreen> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  final String _myUid = FirebaseAuth.instance.currentUser!.uid;
 
   @override
   void initState() {
     super.initState();
-    _fetchCandidates();
+    _tabController = TabController(length: 2, vsync: this);
   }
 
-  // 1. Fetch Candidates (Exclude self and already interacted users)
-  Future<void> _fetchCandidates() async {
-    try {
-      final myInteractions = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(myUid)
-          .collection('interactions')
-          .get();
+  // 🌟 찻잎 3개를 소모하여 상대방 블러 해제 (나를 찜한 사람 확인!)
+  Future<void> _unlockUser(String targetUid) async {
+    final myRef = FirebaseFirestore.instance.collection('users').doc(_myUid);
+    final doc = await myRef.get();
+    int myTea = doc.data()?['tea_leaves'] ?? 0;
 
-      List<String> seenUserIds = myInteractions.docs.map((doc) => doc.id).toList();
-      final allUsers = await FirebaseFirestore.instance.collection('users').get();
-
-      setState(() {
-        _candidates = allUsers.docs.where((doc) {
-          return doc.id != myUid && !seenUserIds.contains(doc.id);
-        }).toList();
-        _isLoading = false;
-      });
-    } catch (e) {
-      print("Error fetching candidates: $e");
-      setState(() => _isLoading = false);
-    }
-  }
-
-  // 2. Handle Swipe Actions
-  bool _onSwipe(int previousIndex, int? currentIndex, CardSwiperDirection direction) {
-    if (previousIndex >= _candidates.length) return false;
-
-    final candidate = _candidates[previousIndex];
-    final candidateUid = candidate.id;
-    final candidateData = candidate.data() as Map<String, dynamic>;
-
-    String type = 'pass';
-    if (direction == CardSwiperDirection.right) {
-      type = 'like';
-      _recordInteraction(candidateUid, 'like');
-    } else if (direction == CardSwiperDirection.left) {
-      type = 'pass';
-      _recordInteraction(candidateUid, 'pass');
-    } else if (direction == CardSwiperDirection.top) {
-      // Swipe Up = Super Like / Chat Now
-      type = 'super_like';
-      _recordInteraction(candidateUid, 'super_like');
-      _startChat(candidateUid, candidateData); // Immediate Chat
-    }
-
-    print("Swiped $type on ${candidate['email']}");
-    return true;
-  }
-
-  // Record interaction in Firestore
-  void _recordInteraction(String targetUid, String type) {
-    FirebaseFirestore.instance
-        .collection('users')
-        .doc(myUid)
-        .collection('interactions')
-        .doc(targetUid)
-        .set({
-      'type': type,
-      'timestamp': FieldValue.serverTimestamp(),
-    });
-  }
-
-  // 3. Logic to Start Chat (Costs 1 Tea Leaf)
-  Future<void> _startChat(String peerUid, Map<String, dynamic> peerData) async {
-    bool success = await UserService().deductTeaLeaf(myUid);
-    if (!success) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppLocale.t('tea_low'))),
-        );
-      }
+    if (myTea < 3) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("찻잎이 부족합니다 (3개 필요) 🍵", style: TextStyle(color: Colors.red))));
       return;
     }
 
-    String peerNickname = peerData['nickname'] ?? 'Unknown';
-    String peerAvatar = peerData['avatar_image'] ?? 'rat.png';
+    // 찻잎 3개 차감 & 해제한 유저 목록에 추가
+    await myRef.update({
+      'tea_leaves': FieldValue.increment(-3),
+      'unlocked_likes': FieldValue.arrayUnion([targetUid])
+    });
 
-    // Create unique chat ID
-    final chatId = myUid.hashCode <= peerUid.hashCode
-        ? '$myUid-$peerUid'
-        : '$peerUid-$myUid';
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppLocale.t('search_start'))), // "Using 1 tea leaf..."
-      );
-      
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => ChatScreen(
-            chatRoomId: chatId,
-            peerUid: peerUid,
-            peerNickname: peerNickname,
-            peerAvatar: peerAvatar,
-          ),
-        ),
-      );
-    }
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("얼굴을 확인했습니다! 👀")));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(AppLocale.t('matching_title'))),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _candidates.isEmpty
-              ? Center(child: Text(AppLocale.t('no_more_friends')))
-              : Column(
-                  children: [
-                    // Card Swiper Area
-                    Expanded(
-                      child: CardSwiper(
-                        controller: controller,
-                        cardsCount: _candidates.length,
-                        numberOfCardsDisplayed: _candidates.length < 3 ? _candidates.length : 3,
-                        cardBuilder: (context, index, x, y) {
-                          return _buildCard(_candidates[index]);
-                        },
-                        onSwipe: _onSwipe,
-                        padding: const EdgeInsets.all(24.0),
-                        allowedSwipeDirection: const AllowedSwipeDirection.all(), // Allow Up/Down/Left/Right
-                      ),
-                    ),
-                    
-                    // Control Buttons Area
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 40.0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          // Pass Button (Left)
-                          _buildCircleButton(
-                            icon: Icons.close,
-                            color: Colors.red,
-                            onPressed: () => controller.swipe(CardSwiperDirection.left),
-                          ),
-                          // Super Like / Chat Button (Up/Center)
-                          _buildCircleButton(
-                            icon: Icons.chat_bubble, // Chat icon for direct connection
-                            color: const Color(0xFF24FCFF), // Signature color
-                            size: 70, // Slightly larger
-                            onPressed: () => controller.swipe(CardSwiperDirection.top),
-                          ),
-                          // Like Button (Right)
-                          _buildCircleButton(
-                            icon: Icons.favorite,
-                            color: Colors.green,
-                            onPressed: () => controller.swipe(CardSwiperDirection.right),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-    );
-  }
-
-  // Helper widget for buttons
-  Widget _buildCircleButton({
-    required IconData icon,
-    required Color color,
-    required VoidCallback onPressed,
-    double size = 60,
-  }) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            spreadRadius: 2,
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+      backgroundColor: Colors.grey[100],
+      appBar: AppBar(
+        title: const Text("인연 목록", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.white, elevation: 0,
+        bottom: TabBar(
+          controller: _tabController,
+          labelColor: Colors.black, indicatorColor: const Color(0xFF24FCFF),
+          tabs: const [Tab(text: "나를 찜한 인연 👀"), Tab(text: "내가 찜한 인연 ❤️")],
+        ),
       ),
-      child: IconButton(
-        icon: Icon(icon, color: color, size: size * 0.5),
-        onPressed: onPressed,
+      body: StreamBuilder<DocumentSnapshot>(
+        stream: FirebaseFirestore.instance.collection('users').doc(_myUid).snapshots(),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+          final data = snapshot.data!.data() as Map<String, dynamic>;
+          
+          List<dynamic> iLiked = data['favorite_users'] ?? [];
+          List<dynamic> likedMe = data['liked_me'] ?? [];
+          List<dynamic> unlockedLikes = data['unlocked_likes'] ?? [];
+
+          return TabBarView(
+            controller: _tabController,
+            children: [
+              _buildUserGrid(likedMe, isLikedMeTab: true, unlockedList: unlockedLikes, iLikedList: iLiked),
+              _buildUserGrid(iLiked, isLikedMeTab: false, unlockedList: [], iLikedList: []),
+            ],
+          );
+        },
       ),
     );
   }
 
-  // 🎨 카드 디자인 (ProfileCard 위젯 재사용!)
-  Widget _buildCard(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
-    return ProfileCard(data: data);
-  }
-
-  // 🚻 성별 아이콘 변환 함수
-  Widget _getGenderIcon(String gender) {
-    if (gender == 'male' || gender == '남성') {
-      return const Icon(Icons.male, color: Colors.blueAccent, size: 28);
-    } else if (gender == 'female' || gender == '여성') {
-      return const Icon(Icons.female, color: Colors.pinkAccent, size: 28);
+  Widget _buildUserGrid(List<dynamic> uids, {required bool isLikedMeTab, required List<dynamic> unlockedList, required List<dynamic> iLikedList}) {
+    if (uids.isEmpty) {
+      return Center(child: Text(isLikedMeTab ? "아직 나를 찜한 사람이 없어요 🥲" : "아직 찜한 사람이 없어요. 지도에서 하트를 눌러보세요!", style: const TextStyle(color: Colors.grey)));
     }
-    return const Icon(Icons.person, color: Colors.grey, size: 28); // 알 수 없음
-  }
 
-  // 🏷️ 관심사 칩(태그) 디자인
-  Widget _buildChip(String label) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.2), // 반투명 흰색
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white30),
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(color: Colors.white, fontSize: 12),
-      ),
+    return GridView.builder(
+      padding: const EdgeInsets.all(15),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, childAspectRatio: 0.75, crossAxisSpacing: 15, mainAxisSpacing: 15),
+      itemCount: uids.length,
+      itemBuilder: (context, index) {
+        String targetUid = uids[index];
+        // 블러 처리를 해야 하는가? (나를 찜한 탭이고, 내가 아직 언락 안 했고, 서로 찜한 사이도 아닐 때)
+        bool shouldBlur = isLikedMeTab && !unlockedList.contains(targetUid) && !iLikedList.contains(targetUid);
+
+        return FutureBuilder<DocumentSnapshot>(
+          future: FirebaseFirestore.instance.collection('users').doc(targetUid).get(),
+          builder: (context, userSnap) {
+            if (!userSnap.hasData) return const Card(child: Center(child: CircularProgressIndicator()));
+            final userData = userSnap.data!.data() as Map<String, dynamic>? ?? {};
+            
+            String name = userData['nickname'] ?? '비밀 유저';
+            String profileType = userData['profile_type'] ?? 'avatar';
+            String profileAvatar = userData['profile_avatar'] ?? 'rat.png';
+            String? profileImageUrl = userData['profile_image_url'];
+
+            return Container(
+              decoration: BoxDecoration(borderRadius: BorderRadius.circular(15), color: Colors.white, boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 5)]),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(15),
+                    child: profileType == 'photo' && profileImageUrl != null
+                        ? Image.network(profileImageUrl, fit: BoxFit.cover)
+                        : Image.asset('assets/avatars/$profileAvatar', fit: BoxFit.cover),
+                  ),
+                  
+                  // 🌟 블러 필터 적용 (BM 핵심)
+                  if (shouldBlur)
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(15),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 15.0, sigmaY: 15.0),
+                        child: Container(color: Colors.black.withOpacity(0.3)),
+                      ),
+                    ),
+
+                  // 하단 이름 표시 영역
+                  Positioned(
+                    bottom: 0, left: 0, right: 0,
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: const BoxDecoration(borderRadius: BorderRadius.vertical(bottom: Radius.circular(15)), color: Colors.black54),
+                      child: Text(shouldBlur ? "누군가 나를 찜했어요!" : name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+                    ),
+                  ),
+
+                  // 블러 해제 버튼
+                  if (shouldBlur)
+                    Positioned.fill(
+                      child: Center(
+                        child: ElevatedButton.icon(
+                          onPressed: () => _unlockUser(targetUid),
+                          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF24FCFF), foregroundColor: Colors.black, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))),
+                          icon: const Icon(Icons.lock_open, size: 16), label: const Text("3🍵 확인", style: TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

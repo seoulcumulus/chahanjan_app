@@ -70,6 +70,8 @@ class _ChatScreenState extends State<ChatScreen> {
           'lastMessage': type == 'image' ? '사진을 보냈습니다.' : text,
           'updatedAt': FieldValue.serverTimestamp(),
           'createdAt': FieldValue.serverTimestamp(),
+          'left_by': [], // 👈 [추가] 초기화
+          'roomId': widget.chatRoomId, // 👈 [추가] ID 명시
         });
       }
 

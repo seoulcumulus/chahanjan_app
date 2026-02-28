@@ -45,22 +45,30 @@ class ChatService {
     final user = _auth.currentUser;
     if (user == null) throw Exception("로그인이 필요합니다.");
 
-    // 1. 채팅방(Chat Room) 생성
-    // (이미 있는 방인지 체크하는 로직은 생략하고 단순 생성합니다)
-    final roomRef = await _firestore.collection('chat_rooms').add({
+    // 1. 채팅방(Chat Room) ID 생성 (정렬하여 조합)
+    final String roomId = user.uid.hashCode <= otherUserId.hashCode 
+        ? '${user.uid}_$otherUserId' 
+        : '${otherUserId}_${user.uid}';
+
+    final roomRef = _firestore.collection('chat_rooms').doc(roomId);
+
+    await roomRef.set({
       'participants': [user.uid, otherUserId], // 나 & 상대방
       'lastMessage': '대화가 시작되었습니다.',
       'updatedAt': FieldValue.serverTimestamp(),
       'type': 'direct', // 1:1 채팅
-    });
+      'status': 'active', 
+      'left_by': [], 
+      'roomId': roomId,
+    }, SetOptions(merge: true));
 
     // 2. 요청 상태를 'accepted'로 변경
     await _firestore.collection('chat_requests').doc(requestId).update({
       'status': 'accepted',
-      'createdRoomId': roomRef.id, // 연결된 방 ID 저장
+      'createdRoomId': roomId, // 연결된 방 ID 저장
     });
 
-    return roomRef.id; // 생성된 방 ID 반환
+    return roomId; // 생성된 방 ID 반환
   }
 
   // ❌ 요청 거절하기

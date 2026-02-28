@@ -69,13 +69,15 @@ class UserService {
       'updatedAt': FieldValue.serverTimestamp(),
       'createdAt': FieldValue.serverTimestamp(),
       'status': 'pending', 
+      'left_by': [], // 👈 [추가] 초기화
+      'roomId': chatId, // 👈 [추가] ID 명시
     }, SetOptions(merge: true));
   }
 
   // 2. 수락하기 기능
   Future<void> acceptChatRequest(String chatId) async {
     await _firestore.collection('chat_rooms').doc(chatId).update({
-      'status': 'accepted',
+      'status': 'active', // 👈 [수정] 'accepted' -> 'active'
       'lastMessage': '대화 요청이 수락되었습니다! 🎉',
       'updatedAt': FieldValue.serverTimestamp(),
     });

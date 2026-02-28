@@ -126,4 +126,60 @@ class MarkerGenerator {
 
     return BitmapDescriptor.bytes(byteData!.buffer.asUint8List());
   }
+
+  // 🌟 [추가] 내 마커 생성 함수: 사진 연동 삭제, 캐릭터 정면 1장만 사용
+  static Future<BitmapDescriptor> createMyMarker(String markerAvatar) async {
+    const int targetWidth = 120; // 마커 크기 설정
+    
+    // 1. 뱀과 소녀를 제외한 12지신 캐릭터는 8방향 스프라이트 시트입니다.
+    bool is25D = !markerAvatar.startsWith('snake') && !markerAvatar.startsWith('avatar');
+
+    if (!is25D) {
+      // 평면 이미지는 그냥 불러와서 반환 (BitmapDescriptor.fromAssetImage 사용)
+      // 주의: 이 방식은 비동기 처리가 필요하므로 직접 렌더링하는 대신 이 방식을 권장하지만, 
+      // 일관성을 위해 아래와 같이 렌더링 로직을 사용할 수도 있습니다.
+      final ui.Image image = await _loadImage('assets/avatars/$markerAvatar');
+      final ui.PictureRecorder pictureRecorder = ui.PictureRecorder();
+      final Canvas canvas = Canvas(pictureRecorder);
+      canvas.drawImageRect(
+        image, 
+        Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()),
+        Rect.fromLTWH(0, 0, targetWidth.toDouble(), targetWidth.toDouble()),
+        Paint()
+      );
+      final ui.Image finalImage = await pictureRecorder.endRecording().toImage(targetWidth, targetWidth);
+      final ByteData? byteData = await finalImage.toByteData(format: ui.ImageByteFormat.png);
+      return BitmapDescriptor.bytes(byteData!.buffer.asUint8List());
+    }
+
+    // 2. 🌟 핵심: 스프라이트 시트에서 정면 1칸만 수학적으로 잘라내기
+    final ui.Image rawImage = await _loadImage('assets/avatars/$markerAvatar');
+
+    // 원본 이미지에서 1칸의 크기 계산 (가로 4칸, 세로 2줄)
+    final double frameWidth = rawImage.width / 4;
+    final double frameHeight = rawImage.height / 2;
+
+    // 그림을 그릴 캔버스 준비
+    final ui.PictureRecorder pictureRecorder = ui.PictureRecorder();
+    final ui.Canvas canvas = ui.Canvas(pictureRecorder);
+    final ui.Paint paint = ui.Paint();
+
+    // 보여줄 마커 크기(targetWidth)에 맞게 캔버스 크기 조정
+    final double scale = targetWidth / frameWidth;
+    final double dstWidth = targetWidth.toDouble();
+    final double dstHeight = frameHeight * scale;
+
+    // 원본에서 [가로 0, 세로 0] 위치의 프레임(정면) 1장만 따와서 캔버스에 그립니다.
+    canvas.drawImageRect(
+      rawImage,
+      Rect.fromLTWH(0, 0, frameWidth, frameHeight), // 원본의 정면 영역
+      Rect.fromLTWH(0, 0, dstWidth, dstHeight),      // 캔버스에 그려질 영역
+      paint,
+    );
+
+    // 캔버스 내용을 파일로 변환
+    final ui.Image markerImage = await pictureRecorder.endRecording().toImage(dstWidth.toInt(), dstHeight.toInt());
+    final ByteData? byteData = await markerImage.toByteData(format: ui.ImageByteFormat.png);
+    return BitmapDescriptor.bytes(byteData!.buffer.asUint8List());
+  }
 }
