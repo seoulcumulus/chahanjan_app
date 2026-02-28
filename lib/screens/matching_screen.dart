@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:chahanjan_app/screens/user_profile_screen.dart';
 
 class MatchingScreen extends StatefulWidget {
   const MatchingScreen({super.key});
@@ -252,7 +253,10 @@ class _MatchingScreenState extends State<MatchingScreen> with SingleTickerProvid
                   width: double.infinity, height: 45,
                   child: ElevatedButton(
                     onPressed: shouldBlur ? () => _unlockDailyCard(targetUid) : () {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("프로필 상세 보기 기능은 개발 중입니다.")));
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => UserProfileScreen(targetUid: targetUid)),
+                      );
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: shouldBlur ? _holyPurple : Colors.white,

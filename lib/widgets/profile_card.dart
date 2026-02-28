@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../utils/translations.dart';
+import 'package:chahanjan_app/screens/user_profile_screen.dart';
 
 class ProfileCard extends StatefulWidget {
   final String uid; // 🌟 상대방의 UID (DB 저장을 위해 필수!)
@@ -91,60 +92,89 @@ class _ProfileCardState extends State<ProfileCard> {
     final bool isHighManner = temp >= 70.0;
     final Color barColor = isHighManner ? const Color(0xFF24FCFF) : const Color(0xFFFFD700); 
 
-    return Container(
-      width: 320, height: 480, 
-      decoration: BoxDecoration(borderRadius: BorderRadius.circular(20), color: Colors.white, boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10)]),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            SizedBox.expand(
-              child: profileType == 'photo' && profileImageUrl != null && profileImageUrl.isNotEmpty
-                  ? Image.network(profileImageUrl, fit: BoxFit.cover, alignment: Alignment.topCenter)
-                  : _buildAvatarBackground(profileAvatar),
-            ),
-            Container(decoration: const BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.black54, Colors.transparent, Colors.black87], stops: [0.0, 0.4, 0.8]))),
-
-            // 🌟 하트(찜하기) 버튼 우측 상단 배치
-            Positioned(
-              top: 20, right: 20,
-              child: FloatingActionButton(
-                mini: true,
-                backgroundColor: Colors.white,
-                onPressed: _toggleLike,
-                child: Icon(_isLiked ? Icons.favorite : Icons.favorite_border, color: Colors.pinkAccent, size: 28),
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => UserProfileScreen(targetUid: widget.uid)),
+        );
+      },
+      child: Container(
+        width: 320, height: 480, 
+        decoration: BoxDecoration(borderRadius: BorderRadius.circular(20), color: Colors.white, boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10)]),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(20),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              SizedBox.expand(
+                child: profileType == 'photo' && profileImageUrl != null && profileImageUrl.isNotEmpty
+                    ? Image.network(profileImageUrl, fit: BoxFit.cover, alignment: Alignment.topCenter)
+                    : _buildAvatarBackground(profileAvatar),
               ),
-            ),
-
-            // 온도 막대 (왼쪽 위)
-            Positioned(
-              top: 25, left: 20,
-              child: Row(
-                children: [
-                  Icon(Icons.thermostat, color: barColor, size: 20),
-                  const SizedBox(width: 5),
-                  Text("$temp℃", style: TextStyle(color: barColor, fontSize: 18, fontWeight: FontWeight.bold, shadows: const [Shadow(color: Colors.black, blurRadius: 2)])),
-                ],
+              Container(decoration: const BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.black54, Colors.transparent, Colors.black87], stops: [0.0, 0.4, 0.8]))),
+  
+              // 🌟 하트(찜하기) 버튼 우측 상단 배치
+              Positioned(
+                top: 20, right: 20,
+                child: FloatingActionButton(
+                  mini: true,
+                  heroTag: 'like_${widget.uid}', // Tag added to prevent Hero issues if multiple cards exist
+                  backgroundColor: Colors.white,
+                  onPressed: _toggleLike,
+                  child: Icon(_isLiked ? Icons.favorite : Icons.favorite_border, color: Colors.pinkAccent, size: 28),
+                ),
               ),
-            ),
-
-            Positioned(
-              bottom: 20, left: 20, right: 20,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(children: [Text(name, style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold)), const SizedBox(width: 8), _getGenderIcon(gender)]),
-                  const SizedBox(height: 5),
-                  Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), decoration: BoxDecoration(color: const Color(0xFF24FCFF), borderRadius: BorderRadius.circular(10)), child: Text(mbti, style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold))),
-                  const SizedBox(height: 8),
-                  Wrap(spacing: 6, runSpacing: 6, children: interests.map((tag) => _buildChip(tag.toString())).toList()),
-                  const SizedBox(height: 10),
-                  Text(bio, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white70, fontSize: 14)),
-                ],
+  
+              // 온도 막대 (왼쪽 위)
+              Positioned(
+                top: 25, left: 20,
+                child: Row(
+                  children: [
+                    Icon(Icons.thermostat, color: barColor, size: 20),
+                    const SizedBox(width: 5),
+                    Text("$temp℃", style: TextStyle(color: barColor, fontSize: 18, fontWeight: FontWeight.bold, shadows: const [Shadow(color: Colors.black, blurRadius: 2)])),
+                  ],
+                ),
               ),
-            ),
-          ],
+  
+              Positioned(
+                bottom: 20, left: 20, right: 20,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(children: [Text(name, style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold)), const SizedBox(width: 8), _getGenderIcon(gender)]),
+                    const SizedBox(height: 5),
+                    Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), decoration: BoxDecoration(color: const Color(0xFF24FCFF), borderRadius: BorderRadius.circular(10)), child: Text(mbti, style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold))),
+                    const SizedBox(height: 8),
+                    Wrap(spacing: 6, runSpacing: 6, children: interests.map((tag) => _buildChip(tag.toString())).toList()),
+                    const SizedBox(height: 10),
+                    Text(bio, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white70, fontSize: 14)),
+                    const SizedBox(height: 15),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 40,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => UserProfileScreen(targetUid: widget.uid)),
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: Colors.black,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          elevation: 0,
+                        ),
+                        child: const Text("프로필 보기", style: TextStyle(fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

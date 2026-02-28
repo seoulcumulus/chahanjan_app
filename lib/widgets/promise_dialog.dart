@@ -171,44 +171,39 @@ class _PromiseDialogState extends State<PromiseDialog> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
       ),
       child: StreamBuilder<DocumentSnapshot>(
-        stream: FirebaseFirestore.instance.collection('chat_rooms').doc(widget.roomId).collection('promise').snapshots().first.then((v) => FirebaseFirestore.instance.collection('chat_rooms').doc(widget.roomId).collection('promise').doc('current').snapshots()),
+        stream: FirebaseFirestore.instance.collection('chat_rooms').doc(widget.roomId).collection('promise').doc('current').snapshots(),
         builder: (context, snapshot) {
           if (_isLoading) return const SizedBox(height: 200, child: Center(child: CircularProgressIndicator()));
           
-          // NOTE: StreamBuilder complexity handled by directly listening to the document snapshots
-          return StreamBuilder<DocumentSnapshot>(
-            stream: FirebaseFirestore.instance.collection('chat_rooms').doc(widget.roomId).collection('promise').doc('current').snapshots(),
-            builder: (context, promiseSnap) {
-              if (promiseSnap.connectionState == ConnectionState.waiting && !promiseSnap.hasData) {
-                return const SizedBox(height: 200, child: Center(child: CircularProgressIndicator()));
-              }
-              final doc = promiseSnap.data;
-              final data = doc?.data() as Map<String, dynamic>?;
+          if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
+            return const SizedBox(height: 200, child: Center(child: CircularProgressIndicator()));
+          }
 
-              // 1. 약속이 없을 때 (제안하기)
-              if (data == null || data['status'] == 'completed' || data['status'] == 'broken') {
-                return _buildProposeUI();
-              }
+          final doc = snapshot.data;
+          final data = doc?.data() as Map<String, dynamic>?;
 
-              // 2. 약속이 제안되었을 때
-              if (data['status'] == 'proposed') {
-                if (data['proposer'] == _myUid) {
-                  return const SizedBox(height: 200, child: Center(child: Text("상대방의 수락을 기다리고 있습니다 ⏳", style: TextStyle(fontSize: 18))));
-                } else {
-                  return _buildAcceptUI();
-                }
-              }
+          // 1. 약속이 없을 때 (제안하기)
+          if (data == null || data['status'] == 'completed' || data['status'] == 'broken') {
+            return _buildProposeUI();
+          }
 
-              // 3. 약속이 성사되었을 때 (만남 인증하기)
-              if (data['status'] == 'accepted') {
-                String myLocField = data['proposer'] == _myUid ? 'user1_loc' : 'user2_loc';
-                bool hasVerified = data[myLocField] != null;
-                return _buildVerifyUI(data, hasVerified);
-              }
-
-              return const SizedBox.shrink();
+          // 2. 약속이 제안되었을 때
+          if (data['status'] == 'proposed') {
+            if (data['proposer'] == _myUid) {
+              return const SizedBox(height: 200, child: Center(child: Text("상대방의 수락을 기다리고 있습니다 ⏳", style: TextStyle(fontSize: 18))));
+            } else {
+              return _buildAcceptUI();
             }
-          );
+          }
+
+          // 3. 약속이 성사되었을 때 (만남 인증하기)
+          if (data['status'] == 'accepted') {
+            String myLocField = data['proposer'] == _myUid ? 'user1_loc' : 'user2_loc';
+            bool hasVerified = data[myLocField] != null;
+            return _buildVerifyUI(data, hasVerified);
+          }
+
+          return const SizedBox.shrink();
         },
       ),
     );
