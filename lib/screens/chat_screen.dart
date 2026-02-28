@@ -8,6 +8,7 @@ import 'package:translator/translator.dart'; // 🌍 번역 패키지 (Adapted i
 import 'call_screen.dart'; // 영상통화 화면
 import '../services/user_service.dart'; // 👈 UserService 추가
 import '../widgets/promise_dialog.dart'; 
+import 'package:google_generative_ai/google_generative_ai.dart'; // 🌟 Gemini 추가!
 
 class ChatScreen extends StatefulWidget {
   final String chatRoomId;
@@ -31,6 +32,190 @@ class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final Color _signatureColor = const Color(0xFF24FCFF);
   final translator = GoogleTranslator(); // 번역기 인스턴스
+
+  // 🌟 (여기에 발급받은 API 키를 넣어주세요!)
+  static const String _geminiApiKey = 'AIzaSyBA48Azmje4yCJp7_Y_aLNI4Q0GSTecmPg';
+
+  // 🌟 AI 티 소믈리에 호출 함수 (2 찻잎 소모)
+  Future<void> _callAiSommelier(String peerUid) async {
+    final String myUid = FirebaseAuth.instance.currentUser!.uid;
+    final myRef = FirebaseFirestore.instance.collection('users').doc(myUid);
+    final peerRef = FirebaseFirestore.instance.collection('users').doc(peerUid);
+
+    // 1. 찻잎 검사
+    final myDoc = await myRef.get();
+    int myTea = myDoc.data()?['tea_leaves'] ?? 0;
+
+    if (myTea < 2) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("찻잎이 2개 필요합니다 🍵", style: TextStyle(color: Colors.red))));
+      return;
+    }
+
+    // 2. 찻잎 차감
+    await myRef.update({'tea_leaves': FieldValue.increment(-2)});
+
+    // 3. 팝업창 띄우기 (로딩 중)
+    if (!mounted) return;
+    _showAiBottomSheet(context, peerRef);
+  }
+
+  // 🌟 AI 결과 화면 (바텀 시트)
+  void _showAiBottomSheet(BuildContext context, DocumentReference peerRef) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Container(
+          height: 450,
+          padding: const EdgeInsets.all(20),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+          ),
+          child: FutureBuilder<DocumentSnapshot>(
+            future: peerRef.get(),
+            builder: (context, snapshot) {
+              // 로딩 중 UI (소믈리에가 차를 우리고 있습니다)
+              if (!snapshot.hasData) {
+                return const Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text("🫖", style: TextStyle(fontSize: 50)),
+                    SizedBox(height: 20),
+                    Text("수석 티 소믈리에가\n상대방의 성향을 분석 중입니다...", textAlign: TextAlign.center, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey)),
+                    SizedBox(height: 20),
+                    CircularProgressIndicator(color: Color(0xFFD4AF37)),
+                  ],
+                );
+              }
+
+              // 상대방 데이터 추출
+              final peerData = snapshot.data!.data() as Map<String, dynamic>;
+              
+              // 실제 AI가 추천해주는 것처럼 FutureBuilder로 감싸서 멘트 생성 (API 연동)
+              return FutureBuilder<List<String>>(
+                future: _generateAiMessages(peerData),
+                builder: (context, aiSnapshot) {
+                  if (!aiSnapshot.hasData) {
+                    return const Center(child: CircularProgressIndicator(color: Color(0xFF24FCFF)));
+                  }
+
+                  final suggestions = aiSnapshot.data!;
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.auto_awesome, color: Color(0xFFD4AF37)),
+                          const SizedBox(width: 8),
+                          const Text("티 소믈리에ของ 추천 멘트", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF2E003E))),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      const Text("마음에 드는 문장을 눌러 바로 전송창에 붙여넣으세요!", style: TextStyle(color: Colors.grey, fontSize: 13)),
+                      const SizedBox(height: 20),
+                      
+                      // 추천 문장 3개 리스트 출력
+                      Expanded(
+                        child: ListView.builder(
+                          itemCount: suggestions.length,
+                          itemBuilder: (context, index) {
+                            return GestureDetector(
+                              onTap: () {
+                                // 🌟 텍스트 입력창(_messageController)에 텍스트를 쏙! 넣어줍니다.
+                                String pureText = suggestions[index].split(']').last.trim(); 
+                                _messageController.text = pureText; 
+                                Navigator.pop(ctx); // 창 닫기
+                              },
+                              child: Container(
+                                margin: const EdgeInsets.only(bottom: 12),
+                                padding: const EdgeInsets.all(15),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF24FCFF).withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(15),
+                                  border: Border.all(color: const Color(0xFF24FCFF).withOpacity(0.5)),
+                                ),
+                                child: Text(suggestions[index], style: const TextStyle(fontSize: 14, height: 1.4, color: Colors.black87)),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  // 🧠 [진짜 AI 연동] Gemini API를 통해 상대방 정보 기반 멘트 생성
+  Future<List<String>> _generateAiMessages(Map<String, dynamic> peerData) async {
+    // 1. API 키 확인 (사용자가 입력하지 않았을 경우를 위한 방어 코드)
+    if (_geminiApiKey == 'AIzaSyBA48Azmje4yCJp7_Y_aLNI4Q0GSTecmPg') {
+      return [
+        "[🍵 정중한 녹차맛]\n안녕하세요! 프로필을 보니 관심사가 비슷하시네요. 혹시 즐겨하시는 편이신가요?",
+        "[🥤 유쾌한 탄산맛]\n앗, 발견! ✨ MBTI가 궁금해지는데 혹시 알려주실 수 있나요?!",
+        "[🧋 설레는 밀크티맛]\n소개글이 너무 인상 깊어서 용기 내어 인사 건넵니다. 오늘 하루 어떠셨어요? 🌙",
+      ];
+    }
+
+    try {
+      // 2. 상대방 데이터 가공
+      String mbti = peerData['mbti'] ?? '비밀';
+      List<dynamic> interestsRaw = peerData['interests'] ?? [];
+      String interest = interestsRaw.isNotEmpty ? interestsRaw.first.toString() : '차 마시기';
+      String bio = peerData['bio'] ?? '반갑습니다!';
+
+      // 3. Gemini 모델 설정 (gemini-1.5-flash 가 빠르고 저렴합니다)
+      final model = GenerativeModel(model: 'gemini-1.5-flash', apiKey: _geminiApiKey);
+
+      // 4. 프롬프트 작성 (페르소나 부여)
+      final prompt = """
+너는 데이팅 앱의 '수석 티 소믈리에'야. 
+상대방의 정보를 바탕으로 대화를 시작하기 좋은 첫인사 문구 3가지를 만들어줘.
+각 문구는 아래의 태그로 시작하고, 한국어로 작성해줘.
+
+1. [🍵 정중한 녹차맛]: 정중하고 차분하게 관심사를 묻는 스타일
+2. [🥤 유쾌한 탄산맛]: 에너지가 넘치고 MBTI나 공통점을 언급하는 밝은 스타일
+3. [🧋 설레는 밀크티맛]: 따뜻하고 감성적이며 소개글의 디테일을 칭찬하는 스타일
+
+상대방 정보:
+- MBTI: $mbti
+- 관심사: $interest
+- 소개글: $bio
+
+출력 시 문구 앞에 번호를 붙이지 말고, 각 스타일별로 한 줄씩만 딱 3줄로 출력해줘.
+""";
+
+      // 5. AI 호출
+      final content = [Content.text(prompt)];
+      final response = await model.generateContent(content);
+      
+      if (response.text == null) throw Exception("Gemini 응답 없음");
+
+      // 6. 결과 파싱 (한 줄씩 나누기)
+      List<String> results = response.text!.trim().split('\n').where((s) => s.contains('[')).toList();
+      
+      // 혹시라도 3개가 안 나왔을 경우를 대비해 placeholder와 합침
+      if (results.length < 3) throw Exception("파싱 실패");
+      
+      return results;
+    } catch (e) {
+      print("Gemini 에러: $e");
+      // 에러 발생 시 fallback
+      return [
+        "[🍵 정중한 녹차맛]\n인사가 늦었네요! 관심사 $interest 관련해서 궁금한 게 많은데 대화 가능할까요?",
+        "[🥤 유쾌한 탄산맛]\n우와 $mbti 이시네요! 저랑 대화 티키타카가 아주 잘 맞을 것 같은 예감이 들어요! 😆",
+        "[🧋 설레는 밀크티맛]\n소개글이 너무 예뻐서 저도 모르게 용기 냈어요. 오늘 하루는 어떻게 보내셨나요? 🌙",
+      ];
+    }
+  }
 
   void _sendMessage(String text, {String type = 'text'}) async {
     if (text.trim().isEmpty) return;
@@ -233,42 +418,60 @@ class _ChatScreenState extends State<ChatScreen> {
               },
             ),
           ),
-          // 입력창 영역
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-            color: Colors.white,
-            child: Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.add_photo_alternate, color: Colors.blue),
-                  onPressed: _sendImage,
-                ),
-                Expanded(
-                  child: TextField(
-                    controller: _messageController,
-                    decoration: InputDecoration(
-                      hintText: "메시지 입력...",
-                      filled: true,
-                      fillColor: Colors.grey[100],
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                CircleAvatar(
-                  backgroundColor: _signatureColor,
-                  child: IconButton(
-                    icon: const Icon(Icons.send, color: Colors.white, size: 20),
-                    onPressed: () => _sendMessage(_messageController.text),
-                  ),
-                ),
-              ],
-            ),
-          ),
+          _buildChatInput(widget.peerUid),
         ],
       ),
     ),
+    );
+  }
+
+  // 🌟 채팅 하단 입력 UI (AI 소믈리에 포함)
+  Widget _buildChatInput(String peerUid) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      color: Colors.white,
+      child: SafeArea(
+        child: Row(
+          children: [
+            // 1. 사진 전송 버튼
+            IconButton(
+              icon: const Icon(Icons.add_photo_alternate, color: Colors.blue),
+              onPressed: _sendImage,
+            ),
+            // 2. 🌟 AI 티 소믈리에 마법봉 버튼
+            IconButton(
+              icon: const Icon(Icons.auto_awesome, color: Color(0xFFD4AF37)),
+              onPressed: () => _callAiSommelier(peerUid),
+              tooltip: "AI 티 소믈리에 호출 (2🍵)",
+            ),
+            // 3. 텍스트 입력창
+            Expanded(
+              child: TextField(
+                controller: _messageController,
+                decoration: InputDecoration(
+                  hintText: "메시지를 입력하세요...",
+                  filled: true,
+                  fillColor: Colors.grey[100],
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(20),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            // 4. 전송 버튼
+            CircleAvatar(
+              backgroundColor: _signatureColor,
+              child: IconButton(
+                icon: const Icon(Icons.send, color: Colors.white, size: 20),
+                onPressed: () => _sendMessage(_messageController.text),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

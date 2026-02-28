@@ -45,6 +45,7 @@ dependencies:
   flutter_native_splash: ^2.4.1
   flutter_card_swiper: ^7.2.0
   flutter_local_notifications: ^17.0.0
+  google_generative_ai: ^0.4.0   # 🌟 구글 공식 Gemini API 패키지 추가!
 
 dev_dependencies:
   flutter_test:
