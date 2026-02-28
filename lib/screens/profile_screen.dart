@@ -8,6 +8,7 @@ import 'dart:math';
 import '../utils/app_strings.dart';
 import '../utils/translations.dart'; 
 import 'package:chahanjan_app/screens/shop_screen.dart'; 
+import 'invite_screen.dart'; 
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -215,7 +216,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _creamyWhite,
-      appBar: AppBar(title: Text(AppLocale.t('nav_profile'), style: TextStyle(fontWeight: FontWeight.bold, color: _holyGold)), backgroundColor: _holyPurple, centerTitle: true, actions: [IconButton(icon: Icon(Icons.language, color: _holyGold), onPressed: _showLanguageDialog)]),
+      appBar: AppBar(
+        title: Text(AppLocale.t('nav_profile'), style: TextStyle(fontWeight: FontWeight.bold, color: _holyGold)), 
+        backgroundColor: _holyPurple, 
+        centerTitle: true, 
+        actions: [
+          IconButton(
+            icon: Icon(Icons.redeem, color: _holyGold), 
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const InviteScreen())),
+          ),
+          IconButton(icon: Icon(Icons.language, color: _holyGold), onPressed: _showLanguageDialog),
+        ],
+      ),
       body: _isLoading
           ? Center(child: CircularProgressIndicator(color: _holyGold))
           : SingleChildScrollView(
