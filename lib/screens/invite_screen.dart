@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/services.dart'; // 클립보드 복사용
+import 'package:share_plus/share_plus.dart'; // 🌟 공유 패키지 추가
 
 class InviteScreen extends StatefulWidget {
   const InviteScreen({super.key});
@@ -184,12 +185,40 @@ class _InviteScreenState extends State<InviteScreen> {
                             ElevatedButton(
                               onPressed: () {
                                 Clipboard.setData(ClipboardData(text: _myInviteCode));
-                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("코드가 복사되었습니다! 친구에게 보내보세요.")));
+                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("코드가 복사되었습니다!")));
                               },
-                              style: ElevatedButton.styleFrom(backgroundColor: _signatureColor, foregroundColor: Colors.black, padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 20), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+                              style: ElevatedButton.styleFrom(backgroundColor: Colors.grey[300], foregroundColor: Colors.black, padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 20), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
                               child: const Icon(Icons.copy),
                             ),
                           ],
+                        ),
+                        
+                        // 🌟 새로 추가된 공유하기 버튼 🌟
+                        const SizedBox(height: 15),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 50,
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              // 친구에게 전송될 초대장 메시지 내용
+                              final String shareText = 
+                                  "☕ 매너 있는 사람들의 다과회, '차한잔'에 초대합니다!\n\n"
+                                  "가입 시 아래 초대 코드를 입력하면\n"
+                                  "우리 둘 다 '50 찻잎 🍵'을 받을 수 있어요!\n\n"
+                                  "🎁 나의 초대 코드: $_myInviteCode\n\n"
+                                  "👇 지금 바로 다운로드 하세요!\n"
+                                  "https://play.google.com/store/apps/details?id=com.chahanjan.app"; // 실제 앱스토어 링크로 나중에 변경
+                                  
+                              Share.share(shareText);
+                            },
+                            icon: const Icon(Icons.send, size: 20),
+                            label: const Text("카카오톡으로 친구 초대하기", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFFEE500), // 카카오톡 노란색
+                              foregroundColor: Colors.black87,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                          ),
                         ),
                       ],
                     ),
