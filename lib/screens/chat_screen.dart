@@ -7,6 +7,7 @@ import 'dart:io';
 import 'package:translator/translator.dart'; // 🌍 번역 패키지 (Adapted import)
 import 'call_screen.dart'; // 영상통화 화면
 import '../services/user_service.dart'; // 👈 UserService 추가
+import '../widgets/promise_dialog.dart'; 
 
 class ChatScreen extends StatefulWidget {
   final String chatRoomId;
@@ -192,6 +193,14 @@ class _ChatScreenState extends State<ChatScreen> {
                   ),
                 ),
               );
+            },
+          ),
+          // 🤝 매너 약속 버튼
+          IconButton(
+            icon: const Icon(Icons.handshake, color: Colors.blue),
+            onPressed: () {
+              // 상대방의 uid와 현재 방의 roomId를 넘겨줍니다.
+              PromiseDialog.show(context, widget.chatRoomId, widget.peerUid); 
             },
           ),
         ],
