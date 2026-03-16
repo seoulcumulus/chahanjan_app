@@ -38,7 +38,8 @@ dependencies:
   image_picker: ^1.1.2
   
   # 📹 영상통화 (ZEGO)
-  zego_uikit_prebuilt_call: ^4.16.3
+  # 📹 영상통화 (ZEGO)
+  zego_uikit_prebuilt_call: ^4.22.2
   
   # 🌍 번역 기능 (Using 'translator' to avoid dio conflict with kakao)
   translator: ^1.0.0
@@ -46,7 +47,7 @@ dependencies:
   flutter_card_swiper: ^7.2.0
   flutter_local_notifications: ^17.0.0
   google_generative_ai: ^0.4.0   # 🌟 구글 공식 Gemini API 패키지 추가!
-  share_plus: ^7.2.1  # 🌟 스마트폰 기본 공유(카카오톡, 문자 등) 기능
+  share_plus: ^12.0.1  # 🌟 최신 버전으로 업그레이드 (ZEGO 호환성)
 
 dev_dependencies:
   flutter_test:

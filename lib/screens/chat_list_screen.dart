@@ -43,6 +43,18 @@ class _ChatListScreenState extends State<ChatListScreen> {
     }
   }
 
+  // 🌟 [신규] 대화 수락 함수
+  Future<void> _acceptChatRequest(String roomId) async {
+    await FirebaseFirestore.instance.collection('chat_rooms').doc(roomId).update({
+      'status': 'active', // 상태를 active로 변경하여 방을 활성화!
+      'lastMessage': '대화가 수락되었습니다. 인사를 건네보세요! 👋',
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("대화가 시작되었습니다!")));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -104,12 +116,16 @@ class _ChatListScreenState extends State<ChatListScreen> {
     );
   }
 
-  // 채팅방 리스트 아이템 UI
+  // 채팅방 리스트 아이템 UI (수락 로직 추가됨!)
   Widget _buildChatTile(DocumentSnapshot roomDoc, {bool isPending = false}) {
     final data = roomDoc.data() as Map<String, dynamic>;
     List<dynamic> participants = data['participants'];
     String peerUid = participants.firstWhere((id) => id != myUid, orElse: () => '');
     
+    // 🌟 핵심: 누가 요청했는지 확인
+    String requestedBy = data['requested_by'] ?? '';
+    bool amIRequester = (requestedBy == myUid);
+
     return FutureBuilder<DocumentSnapshot>(
       future: FirebaseFirestore.instance.collection('users').doc(peerUid).get(),
       builder: (context, userSnap) {
@@ -124,7 +140,6 @@ class _ChatListScreenState extends State<ChatListScreen> {
           leading: CircleAvatar(
             radius: 25,
             backgroundColor: Colors.grey[200],
-            // 🌟 8방향 스프라이트 시트에서 '정면'만 잘라서 보여주기 (기존 로직 유지)
             child: ClipOval(
               child: SizedBox(
                 width: 60, height: 60,
@@ -135,10 +150,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
                       alignment: Alignment.topLeft,
                       widthFactor: 0.25,
                       heightFactor: 0.5,
-                      child: Image.asset(
-                        'assets/avatars/$avatar',
-                        errorBuilder: (_, __, ___) => const Icon(Icons.person, size: 30, color: Colors.grey),
-                      ),
+                      child: Image.asset('assets/avatars/$avatar', errorBuilder: (_, __, ___) => const Icon(Icons.person, size: 30, color: Colors.grey)),
                     ),
                   ),
                 ),
@@ -146,9 +158,12 @@ class _ChatListScreenState extends State<ChatListScreen> {
             ),
           ),
           title: Text(nickname, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          // 💡 내가 보낸 거면 "대기 중", 받은 거면 "요청 도착!" 으로 글씨 변경
           subtitle: Text(
-            isPending ? "수락 대기 중..." : (data['lastMessage'] ?? "대화가 시작되었습니다."),
-            style: TextStyle(color: isPending ? Colors.grey : Colors.black87),
+            isPending 
+                ? (amIRequester ? "수락 대기 중..." : "💌 대화 요청이 도착했습니다! (터치하여 수락)") 
+                : (data['lastMessage'] ?? "대화가 시작되었습니다."),
+            style: TextStyle(color: isPending ? (amIRequester ? Colors.grey : Colors.pinkAccent) : Colors.black87),
             maxLines: 1, overflow: TextOverflow.ellipsis,
           ),
           trailing: IconButton(
@@ -157,7 +172,30 @@ class _ChatListScreenState extends State<ChatListScreen> {
           ),
           onTap: () {
             if (isPending) {
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("상대방의 수락을 기다리고 있습니다.")));
+              if (amIRequester) {
+                // 내가 보낸 요청이면 기다려야 함
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("상대방의 수락을 기다리고 있습니다.")));
+              } else {
+                // 🌟 내가 받은 요청이면 수락 팝업 띄우기!
+                showDialog(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: Text("$nickname님의 대화 요청 💌"),
+                    content: const Text("대화를 수락하고 채팅을 시작하시겠습니까?"),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("나중에", style: TextStyle(color: Colors.grey))),
+                      ElevatedButton(
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          _acceptChatRequest(roomDoc.id); // 수락 함수 실행!
+                        },
+                        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF24FCFF), foregroundColor: Colors.black),
+                        child: const Text("수락하기", style: TextStyle(fontWeight: FontWeight.bold)),
+                      ),
+                    ],
+                  ),
+                );
+              }
             } else {
               // 실제 채팅방으로 이동
               Navigator.push(

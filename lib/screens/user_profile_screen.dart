@@ -71,7 +71,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         return;
       }
 
-      // 찻잎 차감 및 방 생성/부활
+      // [수정된 부분] 찻잎 차감 및 방 생성/부활 (requested_by 추가!)
       await myRef.update({'tea_leaves': FieldValue.increment(-1)});
       
       final roomDoc = await roomRef.doc(roomId).get();
@@ -79,13 +79,17 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         await roomRef.doc(roomId).set({
           'roomId': roomId, 'participants': [_myUid, widget.targetUid],
           'status': 'pending', 'left_by': [],
+          'requested_by': _myUid, // 🌟 [핵심] 내가 요청했다고 꼬리표 달기!
           'lastMessage': '대화 요청이 도착했습니다.', 'lastMessageTime': FieldValue.serverTimestamp(),
           'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
         });
       } else {
         await roomRef.doc(roomId).update({
           'status': 'pending', 'left_by': FieldValue.arrayRemove([_myUid]),
+          'requested_by': _myUid, // 🌟 [핵심] 다시 요청할 때도 꼬리표 달기!
           'lastMessage': '대화를 다시 요청했습니다.', 'lastMessageTime': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
         });
       }
 

@@ -165,13 +165,13 @@ class _ChatScreenState extends State<ChatScreen> {
       ];
     }
 
-    try {
-      // 2. 상대방 데이터 가공
-      String mbti = peerData['mbti'] ?? '비밀';
-      List<dynamic> interestsRaw = peerData['interests'] ?? [];
-      String interest = interestsRaw.isNotEmpty ? interestsRaw.first.toString() : '차 마시기';
-      String bio = peerData['bio'] ?? '반갑습니다!';
+    // 2. 상대방 데이터 가공
+    String mbti = peerData['mbti'] ?? '비밀';
+    List<dynamic> interestsRaw = peerData['interests'] ?? [];
+    String interest = interestsRaw.isNotEmpty ? interestsRaw.first.toString() : '차 마시기';
+    String bio = peerData['bio'] ?? '반갑습니다!';
 
+    try {
       // 3. Gemini 모델 설정 (gemini-1.5-flash 가 빠르고 저렴합니다)
       final model = GenerativeModel(model: 'gemini-1.5-flash', apiKey: _geminiApiKey);
 
